@@ -36,6 +36,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -78,6 +79,8 @@ import com.m57.hermescontrol.ui.chat.components.ChatLifecycleEffects
 import com.m57.hermescontrol.ui.chat.components.ChatLoadingOverlay
 import com.m57.hermescontrol.ui.chat.components.ChatMessageList
 import com.m57.hermescontrol.ui.chat.components.ChatScrollToBottomFab
+import com.m57.hermescontrol.ui.chat.components.ContextDetailSheet
+import com.m57.hermescontrol.ui.chat.components.ContextUsageChip
 import com.m57.hermescontrol.ui.chat.components.ReactionHeartsOverlay
 import com.m57.hermescontrol.ui.chat.components.ReloginDialog
 import com.m57.hermescontrol.ui.chat.components.SearchBarRow
@@ -110,7 +113,7 @@ private const val SESSION_SYNC_INTERVAL_MS = 5_000L
  * this entry point handles only state hoisting, scaffold wiring, and the
  * remembered launchers that need to be activity-scoped.
  */
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(
     modifier: Modifier = Modifier,
@@ -125,12 +128,14 @@ fun ChatScreen(
     val scrollScope = rememberCoroutineScope()
     val scrollController = rememberChatScrollController(listState, scrollScope)
     var isOlderPagingArmed by remember(state.currentSessionId) { mutableStateOf(false) }
+    var showContextSheet by remember { mutableStateOf(false) }
 
     // Periodic session sync while connected.
     LaunchedEffect(state.currentSessionId, state.connectionStatus) {
         while (state.currentSessionId != null && state.connectionStatus == ConnectionStatus.CONNECTED) {
             delay(SESSION_SYNC_INTERVAL_MS)
             viewModel.syncCurrentSession()
+            viewModel.fetchContextUsage()
         }
     }
 
@@ -512,6 +517,20 @@ fun ChatScreen(
                 }
             }
 
+            // Context-window meter (used / full) — sits above the composer so it
+            // stays visible while the session is active, grouped with the model
+            // it belongs to without crowding the title or the control row.
+            ContextUsageChip(
+                usedTokens = state.usedContextTokens,
+                fullTokens = state.fullContextTokens,
+                onClick =
+                    if (state.contextBreakdown != null) {
+                        { showContextSheet = true }
+                    } else {
+                        null
+                    },
+            )
+
             ChatInputBar(
                 inputFieldValue = inputFieldValue,
                 onInputChange = { inputFieldValue = it },
@@ -608,6 +627,14 @@ fun ChatScreen(
                     viewModel.sendSlashModel(provider, model)
                 },
                 onDismiss = { viewModel.closeModelPicker() },
+            )
+        }
+
+        if (showContextSheet && state.contextBreakdown != null) {
+            ContextDetailSheet(
+                breakdown = state.contextBreakdown!!,
+                fullTokens = state.fullContextTokens,
+                onDismiss = { showContextSheet = false },
             )
         }
     }

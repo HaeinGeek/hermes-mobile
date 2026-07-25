@@ -92,6 +92,14 @@ data class ChatUiState(
     val currentSessionModel: String? = null,
     // Reasoning effort level for the current session
     val reasoningLevel: String? = null,
+    // Context-window meter (issue #XXX): tokens currently used by the session
+    // prompt (numerator) and the active model's full context window (denominator).
+    // Both null until the first successful fetch.
+    val usedContextTokens: Long? = null,
+    val fullContextTokens: Long? = null,
+    // Detailed token breakdown for the context meter's detail sheet (null until
+    // the first successful session-detail fetch).
+    val contextBreakdown: ContextBreakdown? = null,
     // Attachment state
     val pendingAttachments: List<Attachment> = emptyList(),
     // Reaction animation — set when a reaction WS event arrives, auto-clears
@@ -140,6 +148,21 @@ data class SudoPromptUi(
 data class SecretPromptUi(
     val requestId: String?,
     val sessionId: String?,
+)
+
+/**
+ * Token breakdown backing the context meter's detail sheet. All values are
+ * token counts sourced from `GET /api/sessions/{id}` (`input_tokens`,
+ * `output_tokens`, `cache_read_tokens`, `cache_write_tokens`, `reasoning_tokens`,
+ * `message_count`) — verified present on the live gateway's `sessions` table.
+ */
+data class ContextBreakdown(
+    val inputTokens: Long,
+    val outputTokens: Long,
+    val cacheReadTokens: Long,
+    val cacheWriteTokens: Long,
+    val reasoningTokens: Long,
+    val messageCount: Int,
 )
 
 class ChatViewModel(
@@ -385,6 +408,12 @@ class ChatViewModel(
 
                 is ReducerEffect.RefreshSessions -> {
                     loadSessions()
+                }
+
+                is ReducerEffect.RefreshContextUsage -> {
+                    // Streaming finished — refresh the context meter now rather
+                    // than waiting up to 5s for the next session-sync poll.
+                    viewModelScope.launch { fetchContextUsage() }
                 }
             }
         }
@@ -1349,6 +1378,8 @@ class ChatViewModel(
                 currentSessionModel = "$provider/$model",
             )
         }
+        // Model switch changes the context-window denominator — refetch it.
+        fetchContextUsage()
         handleSlashCommand("/model $model --provider $provider --session")
     }
 
@@ -1545,6 +1576,65 @@ class ChatViewModel(
                 }
             } finally {
                 isSyncingMessages = false
+            }
+        }
+    }
+
+    /**
+     * Refresh the context-window meter for the current session.
+     *
+     * Numerator (`usedContextTokens`) comes from the session record's
+     * `last_prompt_tokens` (`/api/sessions/{id}`, backend
+     * `gateway/session.py`). Denominator (`fullContextTokens`) comes from the
+     * active model's `effective_context_length` (`/api/model/info`, PUBLIC).
+     *
+     * Both calls are independent and best-effort: a failure on one must not
+     * wipe the other's already-shown value, and neither blocks the chat. The
+     * two fetches are launched separately so a slow/erroring one can't starve
+     * the other. Polled from [syncCurrentSession] via the 5s loop and re-fired
+     * on model switch (the denominator changes).
+     */
+    fun fetchContextUsage() {
+        val sessionId = _uiState.value.currentSessionId ?: return
+        val profile = AuthManager.getSelectedProfileId()
+        viewModelScope.launch(Dispatchers.IO) {
+            // Denominator: full context window (cheap, public, rarely changes).
+            val fullResult =
+                safeApiCall { ApiClient.hermesApi.getModelInfo() }
+            if (fullResult is NetworkResult.Success) {
+                val full =
+                    fullResult.data.effective_context_length
+                        ?: fullResult.data.auto_context_length
+                        ?: fullResult.data.config_context_length
+                if (full != null && full > 0L) {
+                    _uiState.update { it.copy(fullContextTokens = full) }
+                }
+            }
+            // Numerator: used context for THIS session. The gateway's sessions
+            // table persists `input_tokens` (cumulative prompt tokens) — there is
+            // NO `last_prompt_tokens` column on the REST response, so we use
+            // `input_tokens` as the used-context numerator.
+            val usedResult =
+                safeApiCall { ApiClient.hermesApi.getSessionDetail(sessionId, profile) }
+            if (usedResult is NetworkResult.Success) {
+                val d = usedResult.data
+                val used = d.input_tokens
+                if (used != null) {
+                    _uiState.update {
+                        it.copy(
+                            usedContextTokens = used,
+                            contextBreakdown =
+                                ContextBreakdown(
+                                    inputTokens = used,
+                                    outputTokens = d.output_tokens ?: 0L,
+                                    cacheReadTokens = d.cache_read_tokens ?: 0L,
+                                    cacheWriteTokens = d.cache_write_tokens ?: 0L,
+                                    reasoningTokens = d.reasoning_tokens ?: 0L,
+                                    messageCount = d.message_count ?: 0,
+                                ),
+                        )
+                    }
+                }
             }
         }
     }
