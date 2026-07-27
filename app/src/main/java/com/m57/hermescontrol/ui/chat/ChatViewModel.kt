@@ -10,10 +10,14 @@ import androidx.lifecycle.viewModelScope
 import com.m57.hermescontrol.data.local.AuthManager
 import com.m57.hermescontrol.data.local.HermesDatabase
 import com.m57.hermescontrol.data.model.Attachment
+import com.m57.hermescontrol.data.model.AttachmentSource
 import com.m57.hermescontrol.data.model.ModelProvider
 import com.m57.hermescontrol.data.model.PinnedModel
 import com.m57.hermescontrol.data.model.SessionMessage
 import com.m57.hermescontrol.data.remote.ApiClient
+import com.m57.hermescontrol.data.remote.GatewayFile
+import com.m57.hermescontrol.data.remote.GatewayFileClient
+import com.m57.hermescontrol.data.remote.GatewayFileResult
 import com.m57.hermescontrol.data.remote.NetworkResult
 import com.m57.hermescontrol.data.remote.OkHttpProvider
 import com.m57.hermescontrol.data.remote.safeApiCall
@@ -66,6 +70,8 @@ data class ChatUiState(
     val errorMessage: String? = null,
     // Background job completion toast (issue #527) — non-blocking snackbar
     val backgroundCompleteMessage: String? = null,
+    // Attachment open failure — surfaced as a non-blocking snackbar (issue #724)
+    val openError: String? = null,
     val clarifyRequest: ClarifyUi? = null,
     // Sudo / secret prompts — surfaced as dialogs (issue #524)
     val sudoPrompt: SudoPromptUi? = null,
@@ -414,6 +420,16 @@ class ChatViewModel(
                     // Streaming finished — refresh the context meter now rather
                     // than waiting up to 5s for the next session-sync poll.
                     viewModelScope.launch { fetchContextUsage() }
+                }
+
+                is ReducerEffect.AttachHostMedia -> {
+                    // Issue #724: turn host-path MEDIA: directives into real
+                    // attachments (images inline, every other file tappable)
+                    // via the gateway /api/files/download endpoint. Works on a
+                    // remote phone too.
+                    viewModelScope.launch(Dispatchers.IO) {
+                        attachHostMedia(effect.sessionId, effect.messageId)
+                    }
                 }
             }
         }
@@ -1052,10 +1068,11 @@ class ChatViewModel(
                 // #576). For those we fall back to slash.exec, which runs the
                 // full COMMAND_REGISTRY through the worker.
                 val result =
-                    wsClient.request(
-                        WsMethods.COMMAND_DISPATCH,
-                        mapOf("name" to name, "arg" to arg, "session_id" to sessionId),
-                    ).await()
+                    wsClient
+                        .request(
+                            WsMethods.COMMAND_DISPATCH,
+                            mapOf("name" to name, "arg" to arg, "session_id" to sessionId),
+                        ).await()
                 handleDispatchResult(result)
             } catch (e: HermesWsClient.HermesRpcException) {
                 val msg = e.message.orEmpty()
@@ -1068,13 +1085,14 @@ class ChatViewModel(
                     // which routes the full CLI command set through the worker.
                     try {
                         val result =
-                            wsClient.request(
-                                WsMethods.SLASH_EXEC,
-                                mapOf(
-                                    "command" to "/$name${if (arg.isNotEmpty()) " $arg" else ""}",
-                                    "session_id" to sessionId,
-                                ),
-                            ).await()
+                            wsClient
+                                .request(
+                                    WsMethods.SLASH_EXEC,
+                                    mapOf(
+                                        "command" to "/$name${if (arg.isNotEmpty()) " $arg" else ""}",
+                                        "session_id" to sessionId,
+                                    ),
+                                ).await()
                         val output = (result as? Map<*, *>)?.get("output") as? String
                         if (!output.isNullOrBlank()) addAssistantMessage(output)
                     } catch (e2: HermesWsClient.HermesRpcException) {
@@ -1698,6 +1716,9 @@ class ChatViewModel(
                 .filter { it.reasoningText.isNotBlank() }
                 .associateBy { it.content }
 
+        val baseUrl = AuthManager.getBaseUrl()
+        val token = AuthManager.getToken().orEmpty()
+
         return messages.mapIndexed { index, msg ->
             val role =
                 when (msg.role?.lowercase()) {
@@ -1714,23 +1735,247 @@ class ChatViewModel(
                     ?.toLong()
                     ?: System.currentTimeMillis()
 
-            val content = msg.contentText
+            val rawContent = msg.contentText
             val reasoning =
                 if (msg.reasoningText.isNotBlank()) {
                     msg.reasoningText
                 } else {
-                    existingReasoningMap[content]?.reasoningText.orEmpty()
+                    existingReasoningMap[rawContent]?.reasoningText.orEmpty()
                 }
+
+            var finalContent = rawContent
+            var attachments: List<Attachment>? = null
+            if (role == MessageRole.ASSISTANT && rawContent.contains("MEDIA:")) {
+                val items = HostMediaExtractor.extract(rawContent)
+                if (items.isNotEmpty()) {
+                    finalContent = HostMediaExtractor.strip(rawContent)
+                    attachments =
+                        items
+                            .mapNotNull { item ->
+                                val url =
+                                    GatewayFileClient.buildDownloadUrl(
+                                        baseUrl,
+                                        token,
+                                        item.path,
+                                    ) ?: return@mapNotNull null
+                                Attachment(
+                                    uri = url,
+                                    name = mediaNameFromPath(item.path),
+                                    mimeType = mediaMimeForPath(item.path),
+                                    size = 0,
+                                    gatewayUrl = url,
+                                    source = AttachmentSource.GATEWAY,
+                                )
+                            }.takeIf { it.isNotEmpty() }
+                }
+            }
 
             ChatMessage(
                 id = "rest-$sessionId-$globalIndex",
                 role = role,
-                content = content,
+                content = finalContent,
                 reasoningText = reasoning,
+                attachments = attachments,
                 timestamp = timestamp,
                 isStreaming = false,
             )
         }
+    }
+
+    // ── Issue #724: attach host-path MEDIA: files as real attachments ────
+    //
+    // The gateway's WebSocket stream delivers the raw `MEDIA:<path>` directive
+    // the desktop app turns into an authenticated `/api/files/download?...`
+    // URL. We parse every directive, build the download URL via
+    // [GatewayFileClient], classify it (image / audio / video / file) using
+    // [mediaKindForPath], and attach it to the message. Images render inline
+    // (Coil loads the URL); every other type becomes a tappable, fetchable
+    // attachment. The directive text is stripped from the message body. Works
+    // on a remote phone (real HTTP). Mobile-only; backend untouched. Pure
+    // parsing lives in [HostMediaExtractor].
+
+    /**
+     * ViewModel-side handler for [ReducerEffect.AttachHostMedia]: find the local
+     * message by id, convert any `MEDIA:<path>` directives into [Attachment]s
+     * (via the gateway download URL) and strip them from the text. Role,
+     * reasoning, timestamp and existing attachments are preserved; new gateway
+     * attachments are appended. Idempotent — skips if gateway attachments for
+     * the same paths already exist.
+     */
+    private fun attachHostMedia(
+        sessionId: String,
+        messageId: String,
+    ) {
+        val current = _uiState.value.messages.find { it.id == messageId } ?: return
+        val content = current.content
+        val items = HostMediaExtractor.extract(content)
+        if (items.isEmpty()) return
+
+        val baseUrl = AuthManager.getBaseUrl()
+        val token = AuthManager.getToken()
+        if (baseUrl.isBlank() || token.isNullOrBlank()) return
+
+        val existingUrls =
+            current.attachments
+                .orEmpty()
+                .mapNotNull { it.gatewayUrl }
+                .toSet()
+        val newAttachments =
+            items.mapNotNull { item ->
+                val url = GatewayFileClient.buildDownloadUrl(baseUrl, token, item.path) ?: return@mapNotNull null
+                if (url in existingUrls) return@mapNotNull null
+                Attachment(
+                    uri = url,
+                    name = mediaNameFromPath(item.path),
+                    mimeType = mediaMimeForPath(item.path),
+                    size = 0,
+                    gatewayUrl = url,
+                    source = AttachmentSource.GATEWAY,
+                )
+            }
+        if (newAttachments.isEmpty()) return
+
+        val stripped = HostMediaExtractor.strip(content)
+        _uiState.update { state ->
+            state.copy(
+                messages =
+                    state.messages.map { msg ->
+                        if (msg.id == messageId) {
+                            msg.copy(
+                                content = stripped,
+                                attachments =
+                                    (msg.attachments.orEmpty() + newAttachments)
+                                        .distinctBy { it.gatewayUrl ?: it.uri },
+                            )
+                        } else {
+                            msg
+                        }
+                    },
+            )
+        }
+    }
+
+    /**
+     * Open an attachment when its chip/thumbnail is tapped.
+     *
+     * - LOCAL (user-picked) files: open the original `content://` URI
+     *   directly via [android.content.Intent.ACTION_VIEW] — the resolver
+     *   already grants read access for the picked document. If that fails
+     *   (e.g. the permission lapsed), we copy to cache and retry via
+     *   FileProvider so the tap is never a silent no-op.
+     * - GATEWAY (agent `MEDIA:`) files: fetch the bytes via
+     *   [GatewayFileClient], write them to a cache file, and open with
+     *   [android.content.Intent.ACTION_VIEW] through FileProvider — so a
+     *   remote phone can view agent-delivered files in-place.
+     *
+     * Failures surface through [ChatUiState.openError] (non-blocking
+     * snackbar); the tap is never swallowed.
+     */
+    fun openAttachment(attachment: Attachment) {
+        val ctx = getApplication<Application>().applicationContext
+        if (attachment.source == AttachmentSource.LOCAL) {
+            // Best-effort direct open of the picked content URI.
+            runCatching { openWithView(ctx, android.net.Uri.parse(attachment.uri), attachment.mimeType) }
+                .onSuccess { return }
+                .onFailure { /* fall through to cache-copy below */ }
+        }
+        // GATEWAY, or LOCAL direct-open failed → fetch/copy then open.
+        val path =
+            attachment.gatewayUrl?.let { url ->
+                runCatching {
+                    java.net
+                        .URL(url)
+                        .query
+                        .split('&')
+                        .firstOrNull { it.startsWith("path=") }
+                        ?.removePrefix("path=")
+                        ?.let { java.net.URLDecoder.decode(it, "UTF-8") }
+                }.getOrNull()
+            } ?: attachment.name
+        viewModelScope.launch(Dispatchers.IO) {
+            when (val result = GatewayFileClient.fetch(path)) {
+                is GatewayFileResult.Success -> {
+                    openBytes(ctx, result.file)
+                }
+
+                is GatewayFileResult.NotFound -> {
+                    showOpenError("File not found on gateway: ${attachment.name}")
+                }
+
+                is GatewayFileResult.Forbidden -> {
+                    showOpenError("Access denied: ${attachment.name}")
+                }
+
+                is GatewayFileResult.TooLarge -> {
+                    showOpenError("File too large to open: ${attachment.name}")
+                }
+
+                is GatewayFileResult.Unauthorized -> {
+                    showOpenError("Session expired — reconnect to open: ${attachment.name}")
+                }
+
+                is GatewayFileResult.Failure -> {
+                    showOpenError("Could not open ${attachment.name}: ${result.throwable.message}")
+                }
+            }
+        }
+    }
+
+    /** Open bytes written to a cache file via FileProvider + ACTION_VIEW. */
+    private fun openBytes(
+        ctx: android.content.Context,
+        file: GatewayFile,
+    ) {
+        runCatching {
+            val dir = java.io.File(ctx.cacheDir, "gateway_files").also { it.mkdirs() }
+            val safeName = file.name.replace(Regex("[/\\\\]"), "_").ifBlank { "file" }
+            val out = java.io.File(dir, safeName)
+            out.writeBytes(file.bytes)
+            val uri =
+                androidx.core.content.FileProvider.getUriForFile(
+                    ctx,
+                    "${ctx.packageName}.fileprovider",
+                    out,
+                )
+            openWithView(ctx, uri, file.mimeType)
+        }.onFailure { showOpenError("Could not open ${file.name}: ${it.message}") }
+    }
+
+    /** Fire an ACTION_VIEW intent; throws if no activity can handle the type. */
+    private fun openWithView(
+        ctx: android.content.Context,
+        uri: android.net.Uri,
+        mimeType: String,
+    ) {
+        val viewIntent =
+            android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
+                setDataAndType(uri, mimeType.ifBlank { "*/*" })
+                addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+        try {
+            ctx.startActivity(viewIntent)
+        } catch (e: Throwable) {
+            val fallbackIntent =
+                android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
+                    setDataAndType(uri, "*/*")
+                    addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+            val chooser =
+                android.content.Intent.createChooser(fallbackIntent, "Open file").apply {
+                    addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+            ctx.startActivity(chooser)
+        }
+    }
+
+    private fun showOpenError(message: String) {
+        _uiState.update { it.copy(openError = message) }
+    }
+
+    fun clearOpenError() {
+        _uiState.update { it.copy(openError = null) }
     }
 
     private fun serverMessageIndex(
