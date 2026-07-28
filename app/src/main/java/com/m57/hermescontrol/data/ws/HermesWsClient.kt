@@ -14,6 +14,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -33,6 +34,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
+import okio.utf8Size
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.atomic.AtomicBoolean
@@ -65,16 +67,25 @@ object HermesWsClient {
     private const val INITIAL_BACKOFF_MS = 1_000L
     private const val MAX_BACKOFF_MS = 30_000L
     private const val BACKOFF_MULTIPLIER = 2.0
+    private const val MAX_OUTBOUND_MESSAGE_BYTES = 16 * 1024 * 1024
+    private const val OUTBOUND_DRAIN_TIMEOUT_MS = 60_000L
 
     // ── Internal state (all access through synchronized / atomic) ────────
 
     private val requestId = AtomicInteger(0)
+    private val connectionGeneration = AtomicInteger(0)
     private val connected = AtomicBoolean(false)
     private val intentionalClose = AtomicBoolean(false)
+    private val acceptQueuedMessages = AtomicBoolean(true)
     private val messageQueue = ConcurrentLinkedQueue<String>()
+    private val queuedMessagesById = ConcurrentHashMap<String, String>()
+    private val outboundLock = Any()
 
     @Volatile
     private var webSocket: WebSocket? = null
+
+    @Volatile
+    private var closingSocket: WebSocket? = null
 
     @Volatile
     private var currentBackoff = INITIAL_BACKOFF_MS
@@ -83,6 +94,9 @@ object HermesWsClient {
 
     @Volatile
     private var reconnectJob: Job? = null
+
+    @Volatile
+    private var outboundDrainJob: Job? = null
 
     // ── Health and Ping/Pong tracking ────────────────────────────────────
 
@@ -161,10 +175,19 @@ object HermesWsClient {
         // Monitor network state to trigger immediate reconnect when network is restored
         wsScope.launch {
             NetworkMonitor.isConnected.collect { connected ->
-                if (connected && !isConnected && !intentionalClose.get() && AuthManager.isAutoReconnect()) {
-                    Log.d(TAG, "Network restored — triggering immediate reconnect")
-                    currentBackoff = INITIAL_BACKOFF_MS
-                    reconnectJob?.cancel()
+                val shouldOpen =
+                    synchronized(outboundLock) {
+                        if (connected && !isConnected && !intentionalClose.get() && AuthManager.isAutoReconnect()) {
+                            Log.d(TAG, "Network restored — triggering immediate reconnect")
+                            currentBackoff = INITIAL_BACKOFF_MS
+                            reconnectJob?.cancel()
+                            reconnectJob = null
+                            true
+                        } else {
+                            false
+                        }
+                    }
+                if (shouldOpen) {
                     openSocket()
                 }
             }
@@ -193,6 +216,7 @@ object HermesWsClient {
 
     /** Open a WebSocket connection using settings from [AuthManager]. */
     fun connect() {
+        acceptQueuedMessages.set(true)
         if (connected.get()) {
             Log.d(TAG, "Already connected — skipping")
             return
@@ -217,7 +241,9 @@ object HermesWsClient {
             return
         }
         intentionalClose.set(false)
-        currentBackoff = INITIAL_BACKOFF_MS
+        synchronized(outboundLock) {
+            currentBackoff = INITIAL_BACKOFF_MS
+        }
         _connectionStatus.value = ConnectionStatus.CONNECTING
         openSocket()
     }
@@ -268,41 +294,64 @@ object HermesWsClient {
                     client.newCall(request).execute()
                 }
 
-            if (response.isSuccessful) {
-                val body = response.body.string()
-                val ticketMatch = Regex("""\"ticket\":\"([^\"]+)\"""").find(body)
-                val ticket = ticketMatch?.groupValues?.getOrNull(1)
-                if (!ticket.isNullOrBlank()) {
-                    AuthManager.setToken(ticket)
-                    if (BuildConfig.DEBUG) Log.d(TAG, "WS ticket refreshed")
-                    return true
+            response.use {
+                if (response.isSuccessful) {
+                    val body = response.body.string()
+                    val ticketMatch = Regex("""\"ticket\":\"([^\"]+)\"""").find(body)
+                    val ticket = ticketMatch?.groupValues?.getOrNull(1)
+                    if (!ticket.isNullOrBlank()) {
+                        AuthManager.setToken(ticket)
+                        if (BuildConfig.DEBUG) Log.d(TAG, "WS ticket refreshed")
+                        return true
+                    } else {
+                        Log.w(TAG, "WS ticket refresh failed: response body did not contain ticket")
+                        return handleWsTicketRefreshFailure(ConnectionStatus.DISCONNECTED)
+                    }
                 } else {
-                    Log.w(TAG, "WS ticket refresh failed: response body did not contain ticket")
-                    _connectionStatus.value = ConnectionStatus.AUTH_EXPIRED
-                    return false
+                    Log.w(TAG, "WS ticket refresh failed: HTTP ${response.code}")
+                    val status =
+                        when {
+                            response.code == 401 || response.code == 403 -> ConnectionStatus.AUTH_EXPIRED
+                            response.code == 408 || response.code == 429 || response.code >= 500 ->
+                                ConnectionStatus.RECONNECTING
+                            else -> ConnectionStatus.DISCONNECTED
+                        }
+                    return handleWsTicketRefreshFailure(status)
                 }
-            } else {
-                Log.w(TAG, "WS ticket refresh failed: HTTP ${response.code}")
-                _connectionStatus.value = ConnectionStatus.AUTH_EXPIRED
-                return false
             }
         } catch (e: Exception) {
             Log.w(TAG, "WS ticket refresh failed: ${e.javaClass.simpleName}")
-            _connectionStatus.value = ConnectionStatus.AUTH_EXPIRED
-            return false
+            return handleWsTicketRefreshFailure(ConnectionStatus.RECONNECTING)
         }
     }
 
+    private fun handleWsTicketRefreshFailure(status: ConnectionStatus): Boolean {
+        _connectionStatus.value = status
+        if (status == ConnectionStatus.RECONNECTING) scheduleReconnect()
+        return false
+    }
+
     /** Cleanly close the WebSocket and stop auto-reconnect. */
-    fun disconnect() {
-        intentionalClose.set(true)
-        reconnectJob?.cancel()
-        reconnectJob = null
-        stopHealthTracking()
-        webSocket?.close(1000, "Client closed")
-        webSocket = null
-        connected.set(false)
-        _connectionStatus.value = ConnectionStatus.DISCONNECTED
+    fun disconnect(clearPendingMessages: Boolean = false) {
+        synchronized(outboundLock) {
+            intentionalClose.set(true)
+            acceptQueuedMessages.set(!clearPendingMessages)
+            connectionGeneration.incrementAndGet()
+            reconnectJob?.cancel()
+            reconnectJob = null
+            outboundDrainJob?.cancel()
+            outboundDrainJob = null
+            stopHealthTracking()
+            webSocket?.close(1000, "Client closed")
+            webSocket = null
+            closingSocket = null
+            if (clearPendingMessages) {
+                messageQueue.clear()
+                queuedMessagesById.clear()
+            }
+            connected.set(false)
+            _connectionStatus.value = ConnectionStatus.DISCONNECTED
+        }
     }
 
     // ── Awaited RPC request layer (issue #526) ─────────────────────────
@@ -368,6 +417,7 @@ object HermesWsClient {
         error: JsonRpcError?,
     ) {
         val call = pendingCalls.remove(id) ?: return
+        removeQueuedMessage(id)
         call.timeoutJob?.cancel()
         if (error != null) {
             call.deferred.completeExceptionally(HermesRpcException(error.message))
@@ -390,6 +440,7 @@ object HermesWsClient {
         val snapshot = pendingCalls.toList()
         pendingCalls.clear()
         for ((id, call) in snapshot) {
+            removeQueuedMessage(id)
             Log.w(TAG, "Rejecting pending request on disconnect: ${call.method} (id=$id)")
             call.timeoutJob?.cancel()
             call.deferred.completeExceptionally(error)
@@ -412,14 +463,77 @@ object HermesWsClient {
         val request = JsonRpcRequest(id = id, method = method, params = params.mapValues { it.value.toJsonElement() })
         val json = OkHttpProvider.json.encodeToString(request)
         if (BuildConfig.DEBUG) Log.d(TAG, "→ $json")
-        val ws = webSocket
-        if (ws != null && connected.get()) {
-            ws.send(json)
-        } else {
-            Log.d(TAG, "WS disconnected — queuing message")
-            messageQueue.add(json)
+        synchronized(outboundLock) {
+            val ws = webSocket
+            if (ws != null && connected.get()) {
+                if (!ws.send(json)) {
+                    if (webSocket !== ws || !acceptQueuedMessages.get()) return@synchronized
+                    if (isRetryableMessage(json)) {
+                        Log.w(TAG, "WS rejected outgoing message — queuing for reconnect")
+                        queueMessage(id, json)
+                        recoverRejectedSocket(ws)
+                    } else {
+                        Log.w(TAG, "WS rejected oversized outgoing message — not retrying")
+                    }
+                }
+            } else if (acceptQueuedMessages.get()) {
+                if (isRetryableMessage(json)) {
+                    Log.d(TAG, "WS disconnected — queuing message")
+                    queueMessage(id, json)
+                } else {
+                    Log.w(TAG, "WS disconnected with oversized outgoing message — not queueing")
+                }
+            }
         }
         return id
+    }
+
+    private fun isRetryableMessage(json: String): Boolean {
+        if (json.length > MAX_OUTBOUND_MESSAGE_BYTES) return false
+        if (json.length <= MAX_OUTBOUND_MESSAGE_BYTES / 4) return true
+        return json.utf8Size() <= MAX_OUTBOUND_MESSAGE_BYTES.toLong()
+    }
+
+    private fun queueMessage(
+        id: String,
+        json: String,
+    ) {
+        messageQueue.add(json)
+        queuedMessagesById[id] = json
+    }
+
+    private fun removeQueuedMessage(id: String) {
+        synchronized(outboundLock) {
+            queuedMessagesById.remove(id)?.let(messageQueue::remove)
+        }
+    }
+
+    private fun markQueuedMessageSent(json: String) {
+        queuedMessagesById.entries.removeIf { it.value == json }
+    }
+
+    private fun recoverRejectedSocket(ws: WebSocket) {
+        connected.set(false)
+        if (closingSocket === ws) return
+        _connectionStatus.value = ConnectionStatus.RECONNECTING
+        if (ws.queueSize() == 0L) {
+            ws.cancel()
+            scheduleReconnect()
+            return
+        }
+        if (intentionalClose.get()) return
+        outboundDrainJob?.cancel()
+        outboundDrainJob =
+            wsScope.launch {
+                delay(OUTBOUND_DRAIN_TIMEOUT_MS)
+                synchronized(outboundLock) {
+                    if (!connected.get() && !intentionalClose.get() && webSocket === ws) {
+                        ws.cancel()
+                        outboundDrainJob = null
+                        scheduleReconnect()
+                    }
+                }
+            }
     }
 
     /** Convenience: submit a user prompt to an existing session. */
@@ -463,56 +577,96 @@ object HermesWsClient {
         if (BuildConfig.DEBUG) Log.d(TAG, "Connecting to $safeUrl")
 
         val request = Request.Builder().url(url).build()
-        webSocket = OkHttpProvider.websocket.newWebSocket(request, WsListenerImpl())
+        val generation = connectionGeneration.incrementAndGet()
+        val newSocket = OkHttpProvider.websocket.newWebSocket(request, WsListenerImpl(generation))
+        synchronized(outboundLock) {
+            if (connectionGeneration.get() == generation && !intentionalClose.get()) {
+                webSocket = newSocket
+            } else {
+                newSocket.cancel()
+            }
+        }
     }
 
     private fun scheduleReconnect() {
-        if (intentionalClose.get()) return
-        if (!AuthManager.isAutoReconnect()) {
-            if (BuildConfig.DEBUG) Log.d(TAG, "Auto-reconnect disabled")
-            _connectionStatus.value = ConnectionStatus.DISCONNECTED
-            return
-        }
-        if (!NetworkMonitor.isConnected.value) {
-            Log.d(TAG, "No network available — delaying reconnect scheduling")
-            _connectionStatus.value = ConnectionStatus.NO_NETWORK
-            return
-        }
-        val delay = currentBackoff
-        currentBackoff =
-            (currentBackoff * BACKOFF_MULTIPLIER)
-                .toLong()
-                .coerceAtMost(MAX_BACKOFF_MS)
-        if (BuildConfig.DEBUG) Log.d(TAG, "Reconnecting in ${delay}ms …")
-
-        reconnectJob?.cancel()
-        reconnectJob =
-            wsScope.launch {
-                delay(delay)
-                if (!intentionalClose.get() && !connected.get()) {
-                    openSocket()
-                }
+        synchronized(outboundLock) {
+            if (intentionalClose.get() || reconnectJob?.isActive == true) return
+            if (!AuthManager.isAutoReconnect()) {
+                if (BuildConfig.DEBUG) Log.d(TAG, "Auto-reconnect disabled")
+                _connectionStatus.value = ConnectionStatus.DISCONNECTED
+                return
             }
+            if (!NetworkMonitor.isConnected.value) {
+                Log.d(TAG, "No network available — delaying reconnect scheduling")
+                _connectionStatus.value = ConnectionStatus.NO_NETWORK
+                return
+            }
+            val reconnectDelay = currentBackoff
+            currentBackoff =
+                (currentBackoff * BACKOFF_MULTIPLIER)
+                    .toLong()
+                    .coerceAtMost(MAX_BACKOFF_MS)
+            if (BuildConfig.DEBUG) Log.d(TAG, "Reconnecting in ${reconnectDelay}ms …")
+
+            reconnectJob =
+                wsScope.launch {
+                    delay(reconnectDelay)
+                    val owner = currentCoroutineContext()[Job]
+                    val shouldOpen =
+                        synchronized(outboundLock) {
+                            if (reconnectJob !== owner) {
+                                false
+                            } else {
+                                reconnectJob = null
+                                !intentionalClose.get() && !connected.get()
+                            }
+                        }
+                    if (shouldOpen) openSocket()
+                }
+        }
     }
 
     // ── Listener ─────────────────────────────────────────────────────────
 
-    private class WsListenerImpl : WebSocketListener() {
+    private class WsListenerImpl(
+        private val generation: Int,
+    ) : WebSocketListener() {
+        private fun isCurrent(): Boolean = connectionGeneration.get() == generation && !intentionalClose.get()
+
         override fun onOpen(
             webSocket: WebSocket,
             response: Response,
         ) {
-            Log.i(TAG, "WebSocket opened")
-            connected.set(true)
-            _connectionStatus.value = ConnectionStatus.CONNECTED
-            currentBackoff = INITIAL_BACKOFF_MS
-            startHealthTracking()
+            synchronized(outboundLock) {
+                if (!isCurrent()) {
+                    webSocket.close(1000, "Superseded")
+                    return
+                }
+                HermesWsClient.webSocket = webSocket
+                closingSocket = null
+                outboundDrainJob?.cancel()
+                outboundDrainJob = null
+                Log.i(TAG, "WebSocket opened")
+                connected.set(true)
+                _connectionStatus.value = ConnectionStatus.CONNECTED
+                currentBackoff = INITIAL_BACKOFF_MS
+                startHealthTracking()
 
-            while (messageQueue.isNotEmpty()) {
-                val msg = messageQueue.poll()
-                if (msg != null) {
+                while (true) {
+                    val msg = messageQueue.peek() ?: break
+                    if (!isRetryableMessage(msg)) {
+                        Log.w(TAG, "Dropping oversized queued message")
+                        messageQueue.poll()
+                        markQueuedMessageSent(msg)
+                        continue
+                    }
                     if (BuildConfig.DEBUG) Log.d(TAG, "→ (queued) $msg")
-                    webSocket.send(msg)
+                    if (!webSocket.send(msg)) {
+                        recoverRejectedSocket(webSocket)
+                        break
+                    }
+                    messageQueue.poll()
+                    markQueuedMessageSent(msg)
                 }
             }
         }
@@ -521,6 +675,7 @@ object HermesWsClient {
             webSocket: WebSocket,
             text: String,
         ) {
+            if (!isCurrent() || HermesWsClient.webSocket !== webSocket) return
             if (BuildConfig.DEBUG) Log.d(TAG, "← $text")
             lastPongTimestamp = System.currentTimeMillis()
             // Resolve any in-flight `request()` awaiting this RPC result/error
@@ -549,9 +704,22 @@ object HermesWsClient {
             code: Int,
             reason: String,
         ) {
-            // Do NOT log [reason] — it may carry server-side context.
-            Log.d(TAG, "WebSocket closing: $code")
-            webSocket.close(code, reason)
+            synchronized(outboundLock) {
+                if (!isCurrent()) {
+                    webSocket.close(code, reason)
+                    return
+                }
+                closingSocket = webSocket
+                // Do NOT log [reason] — it may carry server-side context.
+                Log.d(TAG, "WebSocket closing: $code")
+                if (code == 4001 || code == 4401 ||
+                    reason.contains("unauthorized", ignoreCase = true) ||
+                    reason.startsWith("auth:", ignoreCase = true)
+                ) {
+                    _connectionStatus.value = ConnectionStatus.AUTH_EXPIRED
+                }
+                webSocket.close(code, reason)
+            }
         }
 
         override fun onClosed(
@@ -559,19 +727,27 @@ object HermesWsClient {
             code: Int,
             reason: String,
         ) {
-            // Do NOT log [reason] — it may carry server-side context. The
-            // reason is still inspected internally to detect auth failures.
-            Log.i(TAG, "WebSocket closed: $code")
-            connected.set(false)
-            stopHealthTracking()
-            if (code == 4001 || code == 4401 ||
-                reason.contains("unauthorized", ignoreCase = true) ||
-                reason.startsWith("auth:", ignoreCase = true)
-            ) {
-                _connectionStatus.value = ConnectionStatus.AUTH_EXPIRED
-            } else {
-                _connectionStatus.value = ConnectionStatus.RECONNECTING
-                scheduleReconnect()
+            synchronized(outboundLock) {
+                if (!isCurrent()) return
+                connectionGeneration.incrementAndGet()
+                closingSocket = null
+                outboundDrainJob?.cancel()
+                outboundDrainJob = null
+                if (HermesWsClient.webSocket === webSocket) HermesWsClient.webSocket = null
+                // Do NOT log [reason] — it may carry server-side context. The
+                // reason is still inspected internally to detect auth failures.
+                Log.i(TAG, "WebSocket closed: $code")
+                connected.set(false)
+                stopHealthTracking()
+                if (code == 4001 || code == 4401 ||
+                    reason.contains("unauthorized", ignoreCase = true) ||
+                    reason.startsWith("auth:", ignoreCase = true)
+                ) {
+                    _connectionStatus.value = ConnectionStatus.AUTH_EXPIRED
+                } else {
+                    _connectionStatus.value = ConnectionStatus.RECONNECTING
+                    scheduleReconnect()
+                }
             }
         }
 
@@ -580,21 +756,29 @@ object HermesWsClient {
             t: Throwable,
             response: Response?,
         ) {
-            // Log the exception class only — [Throwable.message] can leak URLs
-            // or headers. The message is still inspected internally for auth
-            // detection.
-            Log.e(TAG, "WebSocket failure: ${t.javaClass.simpleName}", t)
-            connected.set(false)
-            stopHealthTracking()
-            val code = response?.code ?: 0
-            if (code == 401 || t.message?.contains(
-                    "401",
-                ) == true || t.message?.contains("unauthorized", ignoreCase = true) == true
-            ) {
-                _connectionStatus.value = ConnectionStatus.AUTH_EXPIRED
-            } else {
-                _connectionStatus.value = ConnectionStatus.RECONNECTING
-                scheduleReconnect()
+            synchronized(outboundLock) {
+                if (!isCurrent()) return
+                connectionGeneration.incrementAndGet()
+                closingSocket = null
+                outboundDrainJob?.cancel()
+                outboundDrainJob = null
+                if (HermesWsClient.webSocket === webSocket) HermesWsClient.webSocket = null
+                // Log the exception class only — [Throwable.message] can leak URLs
+                // or headers. The message is still inspected internally for auth
+                // detection.
+                Log.e(TAG, "WebSocket failure: ${t.javaClass.simpleName}", t)
+                connected.set(false)
+                stopHealthTracking()
+                val code = response?.code ?: 0
+                if (code == 401 || t.message?.contains(
+                        "401",
+                    ) == true || t.message?.contains("unauthorized", ignoreCase = true) == true
+                ) {
+                    _connectionStatus.value = ConnectionStatus.AUTH_EXPIRED
+                } else {
+                    _connectionStatus.value = ConnectionStatus.RECONNECTING
+                    scheduleReconnect()
+                }
             }
         }
     }
