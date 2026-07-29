@@ -84,6 +84,8 @@ import com.m57.hermescontrol.ui.chat.components.ContextUsageChip
 import com.m57.hermescontrol.ui.chat.components.ReactionHeartsOverlay
 import com.m57.hermescontrol.ui.chat.components.ReloginDialog
 import com.m57.hermescontrol.ui.chat.components.SearchBarRow
+import com.m57.hermescontrol.ui.chat.components.StickySubagentBar
+import com.m57.hermescontrol.ui.chat.components.SubagentInspectionSheet
 import com.m57.hermescontrol.ui.chat.components.rememberChatScrollController
 import com.m57.hermescontrol.ui.chat.components.tailContentKey
 import com.m57.hermescontrol.ui.common.AutoScrollingTitleText
@@ -186,6 +188,7 @@ fun ChatScreen(
         streamingState.streamingMessage,
         streamingState.isThinking,
         state.subagentIndicators,
+        state.todos,
         state.clarifyRequest,
     ) {
         scrollController.onTailChanged(
@@ -211,6 +214,7 @@ fun ChatScreen(
     var isListening by rememberSaveable { mutableStateOf(false) }
     var lastAnimatedMessageId by rememberSaveable { mutableStateOf<String?>(null) }
     var showReloginDialog by rememberSaveable { mutableStateOf(false) }
+    var showSubagentInspectionSheet by rememberSaveable { mutableStateOf(false) }
     var viewingImage by rememberSaveable { mutableStateOf<ImageViewerModel?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
     val isDark = isSystemInDarkTheme()
@@ -469,6 +473,15 @@ fun ChatScreen(
                 }
             }
 
+            StickySubagentBar(
+                indicators = state.subagentIndicators,
+                todos = state.todos,
+                onClick = {
+                    showSubagentInspectionSheet = true
+                    scrollController.resumeFollowing()
+                },
+            )
+
             Box(
                 modifier =
                     Modifier
@@ -493,7 +506,6 @@ fun ChatScreen(
                     lastAnimatedMessageId = lastAnimatedMessageId,
                     onLastAnimatedMessageIdChange = { lastAnimatedMessageId = it },
                     viewModel = viewModel,
-                    subagentIndicators = state.subagentIndicators,
                     clarifyRequest = state.clarifyRequest,
                     onRespondClarify = viewModel::respondToClarify,
                     onDismissClarify = viewModel::dismissClarify,
@@ -638,6 +650,14 @@ fun ChatScreen(
                 breakdown = state.contextBreakdown!!,
                 fullTokens = state.fullContextTokens,
                 onDismiss = { showContextSheet = false },
+            )
+        }
+
+        if (showSubagentInspectionSheet) {
+            SubagentInspectionSheet(
+                indicators = state.subagentIndicators,
+                todos = state.todos,
+                onDismiss = { showSubagentInspectionSheet = false },
             )
         }
 
