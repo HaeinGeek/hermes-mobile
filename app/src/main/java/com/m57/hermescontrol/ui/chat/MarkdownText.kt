@@ -24,6 +24,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -267,6 +268,28 @@ fun MarkdownText(
                     }
                 }
 
+                is MdBlock.Video -> {
+                    val resolvedUri = remember(block.uri) { resolveImageUrl(block.uri) }
+                    var showVideoDialog by remember { mutableStateOf(false) }
+                    androidx.compose.foundation.layout.Box(
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp),
+                    ) {
+                        com.m57.hermescontrol.ui.chat.components.InlineVideoPlayer(
+                            videoUri = resolvedUri,
+                            onFullScreenClick = { showVideoDialog = true },
+                        )
+                        if (showVideoDialog) {
+                            com.m57.hermescontrol.ui.chat.components.VideoViewerDialog(
+                                videoUri = resolvedUri,
+                                onDismissRequest = { showVideoDialog = false },
+                            )
+                        }
+                    }
+                }
+
                 is MdBlock.Image -> {
                     val model: Any = remember(block.uri) { resolveImageUrl(block.uri) }
                     val isGif =
@@ -391,6 +414,17 @@ private fun tryParseImage(line: String): MdBlock.Image? {
     val uri = m.groupValues[2].trim()
     if (uri.isEmpty()) return null
     return MdBlock.Image(uri = uri, alt = m.groupValues[1].trim())
+}
+
+private fun tryParseVideo(line: String): MdBlock.Video? {
+    val m = IMAGE_RE.matchAt(line, 0) ?: return null
+    val uri = m.groupValues[2].trim()
+    if (uri.isEmpty()) return null
+    val ext = uri.substringAfterLast('.', "").lowercase()
+    if (ext in listOf("mp4", "webm", "mkv", "mov", "avi", "3gp") || uri.contains("video/", ignoreCase = true)) {
+        return MdBlock.Video(uri = uri, alt = m.groupValues[1].trim())
+    }
+    return null
 }
 
 @Composable
@@ -565,6 +599,11 @@ internal fun parseBlocks(src: String): List<MdBlock> {
             // Standalone Markdown image: ![alt](uri) on its own line.
             // Inline images inside a paragraph are left as-is (rendered as text)
             // to keep scope tight; standalone is the common agent-media case.
+            line.isNotBlank() && tryParseVideo(line) != null -> {
+                blocks.add(tryParseVideo(line)!!)
+                i++
+            }
+
             line.isNotBlank() && tryParseImage(line) != null -> {
                 blocks.add(tryParseImage(line)!!)
                 i++
@@ -960,6 +999,11 @@ internal sealed interface MdBlock {
     ) : MdBlock
 
     data class Image(
+        val uri: String,
+        val alt: String = "",
+    ) : MdBlock
+
+    data class Video(
         val uri: String,
         val alt: String = "",
     ) : MdBlock

@@ -35,6 +35,13 @@ data class Attachment(
                 uri.contains(".gif", ignoreCase = true) ||
                 uri.startsWith("data:image/gif", ignoreCase = true)
 
+    val isVideo: Boolean
+        get() =
+            mimeType.startsWith("video/") ||
+                fileExtension in listOf("mp4", "webm", "mkv", "mov", "avi", "3gp") ||
+                uri.contains(".mp4", ignoreCase = true) ||
+                uri.contains(".webm", ignoreCase = true)
+
     val isGateway: Boolean
         get() = source == AttachmentSource.GATEWAY
 
