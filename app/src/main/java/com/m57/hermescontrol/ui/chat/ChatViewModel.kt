@@ -14,6 +14,8 @@ import com.m57.hermescontrol.data.model.AttachmentSource
 import com.m57.hermescontrol.data.model.ModelProvider
 import com.m57.hermescontrol.data.model.PinnedModel
 import com.m57.hermescontrol.data.model.SessionMessage
+import com.m57.hermescontrol.data.model.parseContextBreakdown
+import com.m57.hermescontrol.data.model.parseUsageSnapshot
 import com.m57.hermescontrol.data.remote.ApiClient
 import com.m57.hermescontrol.data.remote.GatewayFile
 import com.m57.hermescontrol.data.remote.GatewayFileClient
@@ -98,7 +100,7 @@ data class ChatUiState(
     val currentSessionModel: String? = null,
     // Reasoning effort level for the current session
     val reasoningLevel: String? = null,
-    // Context-window meter (issue #XXX): tokens currently used by the session
+    // Context-window meter (issue #756): tokens currently used by the session
     // prompt (numerator) and the active model's full context window (denominator).
     // Both null until the first successful fetch.
     val usedContextTokens: Long? = null,
@@ -106,6 +108,10 @@ data class ChatUiState(
     // Detailed token breakdown for the context meter's detail sheet (null until
     // the first successful session-detail fetch).
     val contextBreakdown: ContextBreakdown? = null,
+    // How many times the current session has been context-compressed (null
+    // until the first successful session.usage fetch) — drives the
+    // "compressed ×N" badge on the context chip.
+    val compressionCount: Int? = null,
     // Attachment state
     val pendingAttachments: List<Attachment> = emptyList(),
     // Reaction animation — set when a reaction WS event arrives, auto-clears
@@ -160,9 +166,12 @@ data class SecretPromptUi(
 
 /**
  * Token breakdown backing the context meter's detail sheet. All values are
- * token counts sourced from `GET /api/sessions/{id}` (`input_tokens`,
- * `output_tokens`, `cache_read_tokens`, `cache_write_tokens`, `reasoning_tokens`,
- * `message_count`) — verified present on the live gateway's `sessions` table.
+ * cumulative lifetime token counts sourced from `GET /api/sessions/{id}`
+ * (`input_tokens`, `output_tokens`, `cache_read_tokens`, `cache_write_tokens`,
+ * `reasoning_tokens`, `message_count`) — verified present on the live
+ * gateway's `sessions` table. Informational accounting only; the meter's
+ * live used/full values come from the `session.context_breakdown` RPC
+ * (issue #756).
  */
 data class ContextBreakdown(
     val inputTokens: Long,
@@ -598,6 +607,7 @@ class ChatViewModel(
                         usedContextTokens = null,
                         fullContextTokens = null,
                         contextBreakdown = null,
+                        compressionCount = null,
                     )
                 }
                 // Mirror the active session id app-wide so session-scoped
@@ -623,6 +633,7 @@ class ChatViewModel(
                         usedContextTokens = null,
                         fullContextTokens = null,
                         contextBreakdown = null,
+                        compressionCount = null,
                     )
                 }
                 ActiveSessionHolder.set(newId)
@@ -1459,6 +1470,7 @@ class ChatViewModel(
                 usedContextTokens = null,
                 fullContextTokens = null,
                 contextBreakdown = null,
+                compressionCount = null,
             )
         }
         // Mirror the active session id app-wide (issue #532).
@@ -1631,12 +1643,20 @@ class ChatViewModel(
     }
 
     /**
-     * Refresh the context-window meter for the current session.
+     * Refresh the context meter: used / full tokens for the current session.
      *
-     * Numerator (`usedContextTokens`) comes from the session record's
-     * `last_prompt_tokens` (`/api/sessions/{id}`, backend
-     * `gateway/session.py`). Denominator (`fullContextTokens`) comes from the
-     * active model's `effective_context_length` (`/api/model/info`, PUBLIC).
+     * The numerator comes from the `session.context_breakdown` WS RPC — the
+     * same RPC the Hermes desktop app's status-bar meter uses. It reports the
+     * live agent's actual prompt occupancy (compressor `last_prompt_tokens`,
+     * falling back to an estimate of the live system prompt + tools +
+     * history), so it DROPS after context compression. The previous numerator,
+     * `GET /api/sessions/{id}` `input_tokens`, is a cumulative lifetime
+     * counter that never resets on compression (issue #756).
+     *
+     * The denominator comes from the RPC's `context_max` (the compressor's
+     * real context window) when present, else `GET /api/model/info`
+     * `effective_context_length`. The REST session-detail call is kept only to
+     * feed the detail sheet's cumulative token accounting.
      *
      * Both calls are independent and best-effort: a failure on one must not
      * wipe the other's already-shown value, and neither blocks the chat. The
@@ -1648,7 +1668,8 @@ class ChatViewModel(
         val sessionId = _uiState.value.currentSessionId ?: return
         val profile = AuthManager.getSelectedProfileId()
         viewModelScope.launch(Dispatchers.IO) {
-            // Denominator: full context window (cheap, public, rarely changes).
+            // Denominator fallback: full context window (cheap, public, rarely
+            // changes). The RPC's context_max below overrides it when present.
             val fullResult =
                 safeApiCall { ApiClient.hermesApi.getModelInfo() }
             if (fullResult is NetworkResult.Success) {
@@ -1660,10 +1681,49 @@ class ChatViewModel(
                     _uiState.update { it.copy(fullContextTokens = full) }
                 }
             }
-            // Numerator: used context for THIS session. The gateway's sessions
-            // table persists `input_tokens` (cumulative prompt tokens) — there is
-            // NO `last_prompt_tokens` column on the REST response, so we use
-            // `input_tokens` as the used-context numerator.
+            // Numerator: live context occupancy from the gateway's live agent,
+            // via the same RPC the desktop meter uses. `context_used` is the
+            // real current prompt size (drops after compression); `context_max`
+            // is the compressor's actual window. Any failure keeps the last
+            // known values — never blank the meter over a transient RPC error.
+            val rpcSessionId = runtimeSessionId ?: sessionId
+            try {
+                val result =
+                    sendRpcAndAwait(
+                        WsMethods.SESSION_CONTEXT_BREAKDOWN,
+                        mapOf("session_id" to rpcSessionId),
+                    )
+                val ctx = parseContextBreakdown(result)
+                if (ctx != null) {
+                    _uiState.update { current ->
+                        current.copy(
+                            usedContextTokens =
+                                ctx.contextUsed?.takeIf { it > 0L } ?: current.usedContextTokens,
+                            fullContextTokens =
+                                ctx.contextMax?.takeIf { it > 0L } ?: current.fullContextTokens,
+                        )
+                    }
+                }
+            } catch (_: Exception) {
+                // Best-effort: RPC error/timeout/disconnect — keep last values.
+            }
+            // Compression count: how many times this session has been compacted
+            // (session.usage → compressions). Feeds the "compressed ×N" badge —
+            // the same usage snapshot the desktop status bar reads.
+            try {
+                val usage =
+                    sendRpcAndAwait(
+                        WsMethods.SESSION_USAGE,
+                        mapOf("session_id" to rpcSessionId),
+                    )
+                val snapshot = parseUsageSnapshot(usage)
+                if (snapshot != null && snapshot.compressions != null) {
+                    _uiState.update { it.copy(compressionCount = snapshot.compressions) }
+                }
+            } catch (_: Exception) {
+                // Best-effort: keep the last known badge value.
+            }
+            // Detail-sheet accounting (cumulative REST counters, informational).
             val usedResult =
                 safeApiCall { ApiClient.hermesApi.getSessionDetail(sessionId, profile) }
             if (usedResult is NetworkResult.Success) {
@@ -1672,7 +1732,6 @@ class ChatViewModel(
                 if (used != null) {
                     _uiState.update {
                         it.copy(
-                            usedContextTokens = used,
                             contextBreakdown =
                                 ContextBreakdown(
                                     inputTokens = used,
