@@ -58,6 +58,111 @@ import java.util.concurrent.ConcurrentHashMap
 private const val TAG = "ChatViewModel"
 private const val MESSAGE_PAGE_SIZE = 150
 
+/**
+ * Canonical comparison key for a tool message's result payload.
+ *
+ * WS tool messages store the full tool.complete payload
+ * (`{"tool_id":..., "name":..., "args":..., "result": {...}}`) while REST
+ * transcript rows store just the result object (`{"output":..., "exit_code":...}`).
+ * This key normalizes both sides — preferring the `result` field when present,
+ * and treating int/float JSON numbers as equal — so the two representations of
+ * the SAME tool call can be matched regardless of position or pagination.
+ * Returns null for unparseable content (no match possible).
+ */
+internal fun canonicalToolResultKey(content: String): String? {
+    val element =
+        try {
+            OkHttpProvider.json.parseToJsonElement(content)
+        } catch (_: Exception) {
+            return null
+        }
+
+    fun canon(e: kotlinx.serialization.json.JsonElement): String =
+        when (e) {
+            is kotlinx.serialization.json.JsonObject ->
+                e.entries.sortedBy { it.key }.joinToString("|") { "${it.key}=${canon(it.value)}" }
+            is kotlinx.serialization.json.JsonArray ->
+                e.joinToString(",") { canon(it) }
+            is kotlinx.serialization.json.JsonPrimitive -> {
+                // Canonicalize ALL numbers through double, collapsing int/float
+                // spellings of the same value (0 vs 0.0 → "i0", 0.5 → "d0.5").
+                val s = e.content
+                val d = s.toDoubleOrNull()
+                if (d != null) {
+                    if (d == d.toLong().toDouble()) "i${d.toLong()}" else "d$d"
+                } else {
+                    "s$s"
+                }
+            }
+        }
+    return when (element) {
+        is kotlinx.serialization.json.JsonObject ->
+            element["result"]?.let { canon(it) } ?: canon(element)
+        else -> canon(element)
+    }
+}
+
+/**
+ * True when [a] and [b] are the same logical message (the WS-persisted and
+ * REST-persisted copies of one row — they carry different ids, see #771).
+ * Tool messages match on their normalized result payload; other roles on
+ * exact content.
+ */
+internal fun sameLogicalMessage(
+    a: ChatMessage,
+    b: ChatMessage,
+): Boolean {
+    if (a.role != b.role) return false
+    if (a.role == MessageRole.TOOL) {
+        val ka = canonicalToolResultKey(a.content)
+        val kb = canonicalToolResultKey(b.content)
+        return ka != null && ka == kb
+    }
+    return a.content == b.content
+}
+
+/**
+ * Room accumulates BOTH the WS-persisted copy (UUID id, rich tool payload,
+ * tool name) and the REST-persisted copy (`rest-` id, result-only payload,
+ * no tool name) of every message. Painting the cache verbatim renders the
+ * same call twice. Drop the `rest-` copy whenever a WS copy of the same
+ * logical message exists (issue #771).
+ */
+internal fun dedupeCachedMessages(messages: List<ChatMessage>): List<ChatMessage> {
+    val rest = messages.filter { it.id.startsWith("rest-") }
+    if (rest.isEmpty()) return messages
+    val nonRest = messages.filterNot { it.id.startsWith("rest-") }
+    if (nonRest.isEmpty()) return messages
+    val keepRest = rest.filter { restMsg -> nonRest.none { sameLogicalMessage(it, restMsg) } }
+    return (nonRest + keepRest).sortedBy { it.timestamp }
+}
+
+/**
+ * A transcript reload must NOT yank live WS bubbles the server has not
+ * persisted yet. The gateway stores a tool row only once the tool
+ * COMPLETES server-side, so a reload that lands while a tool is running
+ * (app background/foreground mid-turn, reconnect re-resume, pull-refresh)
+ * returns a page without the tool row — replacing the list outright made
+ * the in-flight tool bubble vanish and left tool.complete with no RUNNING
+ * message to update (issue #771).
+ *
+ * Merge instead of replace: append any current message the REST page does
+ * not already cover (checked by id AND logical content via
+ * [sameLogicalMessage]) and keep chronological order.
+ */
+internal fun mergeTranscriptWithLive(
+    restMessages: List<ChatMessage>,
+    currentMessages: List<ChatMessage>,
+): List<ChatMessage> {
+    val restIds = restMessages.map { it.id }.toSet()
+    val liveTail =
+        currentMessages.filter { old ->
+            old.id !in restIds && restMessages.none { sameLogicalMessage(it, old) }
+        }
+    if (liveTail.isEmpty()) return restMessages
+    return (restMessages + liveTail).sortedBy { it.timestamp }
+}
+
 data class ChatUiState(
     val messages: List<ChatMessage> = emptyList(),
     val currentSessionId: String? = null,
@@ -538,8 +643,12 @@ class ChatViewModel(
             }
 
             is WsEvent.ToolStart -> {
-                // Reset streaming state when a tool starts
-                streamingController.resetStreaming()
+                // Issue #771: the reducer keeps the streaming message (and its
+                // reasoning) alive across the tool call so the finalized answer
+                // retains the thinking card. Only the token buffers are cleared
+                // here — resetStreaming() would wipe streamingMessage +
+                // reasoningText and re-introduce the mid-turn reasoning vanish.
+                streamingController.clearStreamingBuffers()
             }
 
             is WsEvent.RpcResult -> {
@@ -1581,7 +1690,7 @@ class ChatViewModel(
 
     private fun loadCachedMessages(sessionId: String): Job =
         viewModelScope.launch(Dispatchers.IO) {
-            val cachedMessages = repo.loadMessages(sessionId)
+            val cachedMessages = dedupeCachedMessages(repo.loadMessages(sessionId))
             _uiState.update { state ->
                 // Only paint if still showing this session AND no fresher server
                 // page has landed yet (a fast REST fetch must not be clobbered
@@ -1609,8 +1718,12 @@ class ChatViewModel(
                     }
                     _uiState.update { state ->
                         if (state.currentSessionId != sessionId) return@update state
+                        // Merge, don't replace: a reload mid-turn must not
+                        // drop live WS bubbles (running tool call, streaming
+                        // answer) the server hasn't persisted yet. Issue #771.
+                        val merged = mergeTranscriptWithLive(chatMessages, state.messages)
                         state.copy(
-                            messages = chatMessages,
+                            messages = merged,
                             isLoading = false,
                             hasOlderMessages = serverOffset > 0 && chatMessages.isNotEmpty(),
                             isLoadingOlder = false,
@@ -1807,6 +1920,16 @@ class ChatViewModel(
                         withContext(Dispatchers.IO) { repo.persistMessages(incoming, sessionId) }
                         _uiState.update { current ->
                             if (current.currentSessionId != sessionId) return@update current
+                            // Issue #771: the sync merge was dropping the
+                            // newest tool bubble — the incoming REST page
+                            // didn't include it yet (server persists tool rows
+                            // at completion, but the sync offset may predate
+                            // that), and the fragile toolName/content match
+                            // consumed the WRONG incoming tool for an existing
+                            // one, leaving the newest WS tool with no match
+                            // → dropped. Use sameLogicalMessage (canonical
+                            // result-key match) and always preserve any WS
+                            // message that has no REST counterpart.
                             val unmatchedIncoming = incoming.toMutableList()
                             val mergedList = mutableListOf<ChatMessage>()
 
@@ -1820,20 +1943,22 @@ class ChatViewModel(
                                         mergedList.add(existing)
                                     }
                                 } else {
+                                    // WS message (UUID id, no server index):
+                                    // match by canonical content, not fragile
+                                    // toolName/content equality.
                                     val matchIdx =
                                         unmatchedIncoming.indexOfFirst { inc ->
-                                            inc.role == existing.role && (
-                                                inc.content == existing.content ||
-                                                    (
-                                                        existing.role == MessageRole.TOOL &&
-                                                            inc.toolName != null &&
-                                                            inc.toolName == existing.toolName
-                                                    )
-                                            )
+                                            sameLogicalMessage(inc, existing)
                                         }
                                     if (matchIdx >= 0) {
-                                        mergedList.add(unmatchedIncoming.removeAt(matchIdx))
+                                        // Prefer the WS copy (richer payload,
+                                        // real tool name) when available.
+                                        val inc = unmatchedIncoming[matchIdx]
+                                        mergedList.add(existing)
+                                        unmatchedIncoming.removeAt(matchIdx)
                                     } else {
+                                        // No REST counterpart (server hasn't
+                                        // persisted yet) — KEEP the WS message.
                                         mergedList.add(existing)
                                     }
                                 }
@@ -2027,10 +2152,36 @@ class ChatViewModel(
                 .filter { it.reasoningText.isNotBlank() }
                 .associateBy { it.content }
 
+        // Tool rows in the REST transcript carry NO tool name — the live WS
+        // stream was the only source of `toolName`. Match each REST tool row
+        // to its WS counterpart by RESULT CONTENT (not position — pagination
+        // and mixed cache state make positional mapping misalign, leaving
+        // the newest call with a null name → generic "tool" bubble). When a
+        // match is found the live message is reused wholesale (same id +
+        // toolName + rich payload), so persistence upserts the same row
+        // instead of accumulating a second `rest-` copy in Room. Issue #771.
+        val liveToolByResult = linkedMapOf<String, ChatMessage>()
+        _uiState.value.messages
+            .filter { it.role == MessageRole.TOOL }
+            .sortedBy { it.id.startsWith("rest-") } // prefer live WS copies
+            .forEach { msg ->
+                canonicalToolResultKey(msg.content)?.let { key ->
+                    liveToolByResult.putIfAbsent(key, msg)
+                }
+            }
+
         val baseUrl = AuthManager.getBaseUrl()
         val token = AuthManager.getToken().orEmpty()
 
-        return messages.mapIndexed { index, msg ->
+        val mapped = mutableListOf<ChatMessage>()
+        // The gateway stores a reasoning-model's thinking as its OWN assistant
+        // row (content = "", reasoning = trace) directly before the answer row.
+        // Rendering that as a standalone empty assistant bubble is the
+        // "reasoning box in a separate bubble" artifact — fold it into the
+        // next assistant message with content instead. Issue #771.
+        var pendingReasoning: String? = null
+
+        messages.forEachIndexed { index, msg ->
             val role =
                 when (msg.role?.lowercase()) {
                     "user" -> MessageRole.USER
@@ -2047,12 +2198,20 @@ class ChatViewModel(
                     ?: System.currentTimeMillis()
 
             val rawContent = msg.contentText
-            val reasoning =
+            val rowReasoning =
                 if (msg.reasoningText.isNotBlank()) {
                     msg.reasoningText
                 } else {
                     existingReasoningMap[rawContent]?.reasoningText.orEmpty()
                 }
+
+            // Reasoning-only assistant row (the gateway's split storage of a
+            // reasoning turn): stash the trace, skip the empty bubble, and
+            // attach it to the next assistant message that has content.
+            if (role == MessageRole.ASSISTANT && rawContent.isBlank() && rowReasoning.isNotBlank()) {
+                pendingReasoning = rowReasoning
+                return@forEachIndexed
+            }
 
             var finalContent = rawContent
             var attachments: List<Attachment>? = null
@@ -2081,16 +2240,54 @@ class ChatViewModel(
                 }
             }
 
-            ChatMessage(
-                id = "rest-$sessionId-$globalIndex",
-                role = role,
-                content = finalContent,
-                reasoningText = reasoning,
-                attachments = attachments,
-                timestamp = timestamp,
-                isStreaming = false,
+            val finalReasoning =
+                if (rowReasoning.isNotBlank()) {
+                    rowReasoning
+                } else if (role == MessageRole.ASSISTANT && pendingReasoning != null) {
+                    pendingReasoning.also { pendingReasoning = null }
+                } else {
+                    ""
+                }
+
+            // Tool rows in the REST transcript carry no tool name. When the
+            // result payload matches a live WS tool message, reuse it whole —
+            // keeps the real name, the rich WS payload, AND the same id so
+            // Room upserts instead of accumulating a duplicate `rest-` row.
+            if (role == MessageRole.TOOL) {
+                canonicalToolResultKey(rawContent)?.let { key ->
+                    liveToolByResult[key]?.let { live ->
+                        mapped.add(live)
+                        return@forEachIndexed
+                    }
+                }
+            }
+
+            mapped.add(
+                ChatMessage(
+                    id = "rest-$sessionId-$globalIndex",
+                    role = role,
+                    content = finalContent,
+                    reasoningText = finalReasoning,
+                    attachments = attachments,
+                    timestamp = timestamp,
+                    isStreaming = false,
+                ),
             )
         }
+
+        // A reasoning-only row with no following answer (interrupted turn):
+        // don't drop the trace — attach it to the last assistant message.
+        if (pendingReasoning != null) {
+            val lastAssistantIdx = mapped.indexOfLast { it.role == MessageRole.ASSISTANT }
+            if (lastAssistantIdx >= 0) {
+                val target = mapped[lastAssistantIdx]
+                if (target.reasoningText.isBlank()) {
+                    mapped[lastAssistantIdx] = target.copy(reasoningText = pendingReasoning!!)
+                }
+            }
+        }
+
+        return mapped
     }
 
     // ── Issue #724: attach host-path MEDIA: files as real attachments ────
