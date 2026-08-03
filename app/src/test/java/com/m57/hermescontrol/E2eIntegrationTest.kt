@@ -47,9 +47,11 @@ import com.m57.hermescontrol.data.remote.ApiClient
 import com.m57.hermescontrol.data.remote.CleartextPolicy
 import com.m57.hermescontrol.data.remote.HermesApiService
 import com.m57.hermescontrol.data.remote.ServerEndpoint
+import com.m57.hermescontrol.data.ws.KanbanEventsClient
 import com.m57.hermescontrol.ui.channels.ChannelsViewModel
 import com.m57.hermescontrol.ui.connect.ConnectViewModel
 import com.m57.hermescontrol.ui.cron.CronJobsViewModel
+import com.m57.hermescontrol.ui.kanban.KanbanTaskAction
 import com.m57.hermescontrol.ui.kanban.KanbanViewModel
 import com.m57.hermescontrol.ui.keys.KeysViewModel
 import com.m57.hermescontrol.ui.logs.LogsViewModel
@@ -1205,10 +1207,8 @@ class E2eIntegrationTest {
             coEvery { mockApiService.switchKanbanBoard("board-1") } returns Response.success(Unit)
             coEvery { mockApiService.getKanbanBoard() } returns
                 Response.success(KanbanBoardResponse(listOf(KanbanColumn("todo", listOf(task))), null, null))
-            coEvery { mockApiService.updateKanbanTask("task-1", mapOf("status" to "in_progress")) } returns
-                Response.success(Unit)
 
-            val viewModel = KanbanViewModel()
+            val viewModel = KanbanViewModel(eventsClientProvider = { mockk<KanbanEventsClient>(relaxed = true) })
             viewModel.loadBoards()
             advanceUntilIdle()
 
@@ -1224,20 +1224,28 @@ class E2eIntegrationTest {
                     .status,
             )
 
-            viewModel.moveTask(viewModel.uiState.value.tasks[0], "in_progress")
-            // Optimistic move check
+            // Desktop-style transition: todo -> ready is a direct write the
+            // backend accepts; the VM PATCHes the target status.
+            coEvery {
+                mockApiService.updateKanbanTask(
+                    "task-1",
+                    mapOf("status" to "ready"),
+                )
+            } returns Response.success(Unit)
+            viewModel.moveTask(viewModel.uiState.value.tasks[0], KanbanTaskAction.READY)
+            advanceUntilIdle()
             assertEquals(
-                "in_progress",
+                "ready",
                 viewModel.uiState.value.tasks[0]
                     .status,
             )
 
+            // Create path: the wrapped {"task": ...} response must not
+            // break deserialization — the API layer reads it as Unit.
+            coEvery { mockApiService.createKanbanTask(any(), any()) } returns Response.success(Unit)
+            viewModel.createTask("Fresh task", null, "todo")
             advanceUntilIdle()
-            assertEquals(
-                "in_progress",
-                viewModel.uiState.value.tasks[0]
-                    .status,
-            )
+            assertEquals("Task created successfully", viewModel.uiState.value.toastMessage)
         }
 
     @Test

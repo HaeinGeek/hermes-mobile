@@ -1,5 +1,6 @@
 package com.m57.hermescontrol.ui.kanban
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,9 +16,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
@@ -39,6 +42,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -79,6 +83,9 @@ fun KanbanScreen(
             filteredTasks.groupBy { it.status.lowercase() }
         }
     var showAddTaskDialog by remember { mutableStateOf(false) }
+    var taskForActions by remember { mutableStateOf<KanbanTask?>(null) }
+    var confirmTarget by remember { mutableStateOf<Pair<KanbanTask, KanbanTaskAction>?>(null) }
+    var summaryTarget by remember { mutableStateOf<Pair<KanbanTask, KanbanTaskAction>?>(null) }
 
     LaunchedEffect(Unit) {
         viewModel.loadBoards()
@@ -150,9 +157,33 @@ fun KanbanScreen(
                                     Text(stringResource(R.string.kanban_no_columns))
                                 }
                             } else {
+                                Row(
+                                    modifier =
+                                        Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 16.dp, vertical = 4.dp),
+                                    horizontalArrangement = Arrangement.End,
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    LiveStatusPill(isLive = state.isLive)
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    IconButton(onClick = { showAddTaskDialog = true }) {
+                                        Icon(
+                                            imageVector = Icons.Filled.Add,
+                                            contentDescription = stringResource(R.string.kanban_add_task),
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                }
                                 LazyRow(
                                     modifier = Modifier.fillMaxSize(),
-                                    contentPadding = PaddingValues(16.dp),
+                                    contentPadding =
+                                        PaddingValues(
+                                            start = 16.dp,
+                                            top = 16.dp,
+                                            end = 16.dp,
+                                            bottom = 16.dp,
+                                        ),
                                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                                 ) {
                                     items(state.columns.size, key = { index ->
@@ -161,8 +192,6 @@ fun KanbanScreen(
                                         val column = state.columns[columnIndex]
                                         val colName = column.name
                                         val colTasks = tasksByColumn[colName.lowercase()] ?: emptyList()
-                                        val prevColumn = state.columns.getOrNull(columnIndex - 1)
-                                        val nextColumn = state.columns.getOrNull(columnIndex + 1)
 
                                         Column(
                                             modifier =
@@ -179,22 +208,31 @@ fun KanbanScreen(
                                                 modifier = Modifier.padding(bottom = 8.dp),
                                             )
 
-                                            LazyColumn(
-                                                modifier = Modifier.weight(1f),
-                                                verticalArrangement = Arrangement.spacedBy(8.dp),
-                                            ) {
-                                                items(colTasks, key = { it.id }) { task ->
-                                                    TaskCard(
-                                                        task = task,
-                                                        onMoveLeft =
-                                                            prevColumn?.let {
-                                                                { viewModel.moveTask(task, it.name) }
-                                                            },
-                                                        onMoveRight =
-                                                            nextColumn?.let {
-                                                                { viewModel.moveTask(task, it.name) }
-                                                            },
+                                            if (colTasks.isEmpty()) {
+                                                Box(
+                                                    modifier =
+                                                        Modifier
+                                                            .fillMaxWidth()
+                                                            .padding(vertical = 16.dp),
+                                                    contentAlignment = Alignment.Center,
+                                                ) {
+                                                    Text(
+                                                        text = stringResource(R.string.kanban_no_tasks),
+                                                        style = MaterialTheme.typography.bodySmall,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                                                     )
+                                                }
+                                            } else {
+                                                LazyColumn(
+                                                    modifier = Modifier.weight(1f),
+                                                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                                                ) {
+                                                    items(colTasks, key = { it.id }) { task ->
+                                                        TaskCard(
+                                                            task = task,
+                                                            onTaskClick = { taskForActions = it },
+                                                        )
+                                                    }
                                                 }
                                             }
                                         }
@@ -213,6 +251,47 @@ fun KanbanScreen(
                             },
                         )
                     }
+
+                    taskForActions?.let { task ->
+                        val actions = kanbanActionsForStatus(task.status)
+                        if (actions.isNotEmpty()) {
+                            TaskActionSheet(
+                                task = task,
+                                actions = actions,
+                                onAction = { action ->
+                                    taskForActions = null
+                                    when {
+                                        action.needsSummary -> summaryTarget = task to action
+                                        action.needsConfirm -> confirmTarget = task to action
+                                        else -> viewModel.moveTask(task, action)
+                                    }
+                                },
+                                onDismiss = { taskForActions = null },
+                            )
+                        }
+                    }
+
+                    confirmTarget?.let { (task, action) ->
+                        ConfirmActionDialog(
+                            message = stringResource(action.confirmRes()),
+                            onConfirm = {
+                                confirmTarget = null
+                                if (action.needsSummary) {
+                                    summaryTarget = task to action
+                                } else {
+                                    viewModel.moveTask(task, action)
+                                }
+                            },
+                            onDismiss = { confirmTarget = null },
+                        )
+                    }
+
+                    summaryTarget?.let { (task, action) ->
+                        CompleteTaskDialog(
+                            onConfirm = { summary -> viewModel.moveTask(task, action, summary) },
+                            onDismiss = { summaryTarget = null },
+                        )
+                    }
                 }
             }
         }
@@ -222,45 +301,62 @@ fun KanbanScreen(
 @Composable
 fun TaskCard(
     task: KanbanTask,
-    onMoveLeft: (() -> Unit)?,
-    onMoveRight: (() -> Unit)?,
+    onTaskClick: (KanbanTask) -> Unit,
 ) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+    Card(onClick = { onTaskClick(task) }, modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(12.dp)) {
             Text(text = task.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             Spacer(modifier = Modifier.height(4.dp))
             task.description?.let {
-                Text(text = it, style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.bodyMedium,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
             }
-            Spacer(modifier = Modifier.height(8.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                if (onMoveLeft != null) {
-                    IconButton(onClick = onMoveLeft) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(R.string.content_desc_move_left),
-                        )
-                    }
-                } else {
-                    Spacer(modifier = Modifier.size(48.dp))
-                }
-
-                if (onMoveRight != null) {
-                    IconButton(onClick = onMoveRight) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                            contentDescription = stringResource(R.string.content_desc_move_right),
-                        )
-                    }
-                } else {
-                    Spacer(modifier = Modifier.size(48.dp))
+            task.assignedTo?.let { assignee ->
+                Spacer(modifier = Modifier.height(6.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Filled.Person,
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = assignee,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun LiveStatusPill(isLive: Boolean) {
+    val color =
+        if (isLive) {
+            MaterialTheme.colorScheme.primary
+        } else {
+            MaterialTheme.colorScheme.onSurfaceVariant
+        }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            modifier =
+                Modifier
+                    .size(8.dp)
+                    .background(color = color, shape = CircleShape),
+        )
+        Spacer(modifier = Modifier.width(6.dp))
+        Text(
+            text = stringResource(if (isLive) R.string.kanban_live else R.string.kanban_offline),
+            style = MaterialTheme.typography.labelMedium,
+            color = color,
+        )
     }
 }
 
@@ -299,6 +395,114 @@ fun AddTaskDialog(
                 enabled = title.isNotBlank(),
             ) {
                 Text(stringResource(R.string.action_add))
+            }
+        },
+        dismissButton = {
+            Button(onClick = onDismiss) {
+                Text(stringResource(R.string.action_cancel))
+            }
+        },
+    )
+}
+
+private fun KanbanTaskAction.labelRes(): Int =
+    when (this) {
+        KanbanTaskAction.TRIAGE -> R.string.kanban_action_triage
+        KanbanTaskAction.READY -> R.string.kanban_action_ready
+        KanbanTaskAction.UNBLOCK -> R.string.kanban_action_unblock
+        KanbanTaskAction.BLOCK -> R.string.kanban_action_block
+        KanbanTaskAction.COMPLETE -> R.string.kanban_action_complete
+        KanbanTaskAction.ARCHIVE -> R.string.kanban_action_archive
+    }
+
+private fun KanbanTaskAction.confirmRes(): Int =
+    when (this) {
+        KanbanTaskAction.BLOCK -> R.string.kanban_confirm_blocked
+        KanbanTaskAction.COMPLETE -> R.string.kanban_confirm_done
+        KanbanTaskAction.ARCHIVE -> R.string.kanban_confirm_archive
+        else -> error("Action $this has no confirm message")
+    }
+
+@Composable
+private fun TaskActionSheet(
+    task: KanbanTask,
+    actions: List<KanbanTaskAction>,
+    onAction: (KanbanTaskAction) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(task.title, maxLines = 2, overflow = TextOverflow.Ellipsis) },
+        text = {
+            Column {
+                actions.forEach { action ->
+                    Button(
+                        onClick = { onAction(action) },
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp),
+                    ) {
+                        Text(stringResource(action.labelRes()))
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            Button(onClick = onDismiss) {
+                Text(stringResource(R.string.action_cancel))
+            }
+        },
+    )
+}
+
+@Composable
+private fun ConfirmActionDialog(
+    message: String,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        text = { Text(message) },
+        confirmButton = {
+            Button(onClick = onConfirm) {
+                Text(stringResource(R.string.action_confirm))
+            }
+        },
+        dismissButton = {
+            Button(onClick = onDismiss) {
+                Text(stringResource(R.string.action_cancel))
+            }
+        },
+    )
+}
+
+@Composable
+private fun CompleteTaskDialog(
+    onConfirm: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var summary by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.kanban_complete_title)) },
+        text = {
+            OutlinedTextField(
+                value = summary,
+                onValueChange = { summary = it },
+                label = { Text(stringResource(R.string.kanban_complete_summary_label)) },
+                supportingText = { Text(stringResource(R.string.kanban_complete_summary_hint)) },
+                modifier = Modifier.fillMaxWidth(),
+            )
+        },
+        confirmButton = {
+            Button(
+                onClick = { onConfirm(summary.trim()) },
+                enabled = summary.isNotBlank(),
+            ) {
+                Text(stringResource(R.string.kanban_action_complete))
             }
         },
         dismissButton = {
