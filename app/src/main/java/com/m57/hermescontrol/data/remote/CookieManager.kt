@@ -7,7 +7,6 @@ import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import okhttp3.Cookie
 
 /**
@@ -52,9 +51,9 @@ object CookieManager {
     }
 
     /** Switch the active server scope and load its persisted cookies. */
-    fun useStore(serverId: String) {
+    suspend fun useStore(serverId: String) {
         val j = jar ?: return
-        runBlocking(scope.coroutineContext) { j.useStore(serverId) }
+        j.useStore(serverId)
     }
 
     /** Read the current dashboard access-cookie value (or null). */

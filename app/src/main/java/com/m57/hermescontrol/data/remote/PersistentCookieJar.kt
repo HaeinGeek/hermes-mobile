@@ -10,6 +10,7 @@ import okhttp3.Cookie
 import okhttp3.CookieJar
 import okhttp3.HttpUrl
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.atomic.AtomicReference
 
 /**
@@ -38,6 +39,7 @@ class PersistentCookieJar(
     // serverId -> (host -> cookies)
     private val cache = ConcurrentHashMap<String, MutableMap<String, MutableList<Cookie>>>()
     private val loadedScopes = ConcurrentHashMap.newKeySet<String>()
+    private val loadLatches = ConcurrentHashMap<String, CountDownLatch>()
 
     @Volatile private var currentServerId = AtomicReference(initialServerId)
 
@@ -61,9 +63,6 @@ class PersistentCookieJar(
      */
     fun getCookie(name: String): Cookie? {
         val serverId = currentServerId.get()
-        if (!loadedScopes.contains(serverId)) {
-            kotlinx.coroutines.runBlocking { ensureLoaded(serverId) }
-        }
         val hosts = cache[serverId] ?: return null
         for (bucket in hosts.values) {
             synchronized(bucket) {
@@ -106,10 +105,6 @@ class PersistentCookieJar(
 
     override fun loadForRequest(url: HttpUrl): List<Cookie> {
         val serverId = currentServerId.get()
-        // Best-effort synchronous load on first touch (tests/first call).
-        if (!loadedScopes.contains(serverId)) {
-            kotlinx.coroutines.runBlocking { ensureLoaded(serverId) }
-        }
         val hostKey = url.host
         val hosts = cache[serverId] ?: return emptyList()
         val now = System.currentTimeMillis()
