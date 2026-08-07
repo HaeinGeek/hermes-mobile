@@ -33,6 +33,16 @@ body:
     validations:
       required: true
   - type: textarea
+    id: gateway
+    attributes:
+      label: Gateway version & commit
+      description: Version and git commit of the Hermes gateway the app is connected to. Find the version in the app (Gateway screen, or System screen → Hermes version). The commit is the short SHA on the gateway host (`git rev-parse --short HEAD` in the hermes-agent checkout).
+      placeholder: |
+        - Gateway version: v0.8.3
+        - Gateway commit: 8f2712725
+    validations:
+      required: false
+  - type: textarea
     id: additional
     attributes:
       label: Additional context
