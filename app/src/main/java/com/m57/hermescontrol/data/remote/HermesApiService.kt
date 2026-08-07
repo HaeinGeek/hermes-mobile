@@ -8,6 +8,7 @@ import com.m57.hermescontrol.data.model.AddMcpServerRequest
 import com.m57.hermescontrol.data.model.AgentPluginInstallBody
 import com.m57.hermescontrol.data.model.AnalyticsResponse
 import com.m57.hermescontrol.data.model.AuxiliaryModelsResponse
+import com.m57.hermescontrol.data.model.BackupTriggerRequest
 import com.m57.hermescontrol.data.model.BulkDeleteRequest
 import com.m57.hermescontrol.data.model.BulkDeleteResponse
 import com.m57.hermescontrol.data.model.CheckpointsResponse
@@ -144,6 +145,7 @@ import retrofit2.http.PUT
 import retrofit2.http.Part
 import retrofit2.http.Path
 import retrofit2.http.Query
+import retrofit2.http.Streaming
 
 interface HermesApiService {
     @GET("api/skills/content")
@@ -750,8 +752,11 @@ interface HermesApiService {
         @Body request: EnvVarDeleteRequest,
     ): Response<Unit>
 
+    // Backend requires a JSON body (BackupRequest) — bodyless POST 422s.
     @POST("api/ops/backup")
-    suspend fun triggerBackup(): Response<ActionResponse>
+    suspend fun triggerBackup(
+        @Body body: BackupTriggerRequest,
+    ): Response<ActionResponse>
 
     @POST("api/ops/doctor")
     suspend fun runDoctor(): Response<DoctorResponse>
@@ -869,15 +874,23 @@ interface HermesApiService {
     ): Response<ActionResponse>
 
     // ── Admin: Backup download ────────────────────────────────────────
+    // @Streaming: backups are 300+ MB — Retrofit's default buffering of
+    // ResponseBody OOMs the app (observed crash with a 327MB archive).
+    @Streaming
     @GET("api/ops/backup/download")
     suspend fun downloadBackup(
         @Query("archive") archive: String,
     ): Response<ResponseBody>
 
     // ── Admin: Backup import ──────────────────────────────────────────
-    @POST("api/ops/import")
-    suspend fun runImport(
-        @Body body: Map<String, Any>,
+    // Multipart upload (issue #786): the path-based POST /api/ops/import
+    // is useless on a phone (server-side path typed into the app); the
+    // desktop's upload contract is the real one — file + force.
+    @Multipart
+    @POST("api/ops/import-upload")
+    suspend fun importUpload(
+        @Part("force") force: okhttp3.RequestBody,
+        @Part file: okhttp3.MultipartBody.Part,
     ): Response<ActionResponse>
 
     // ── Admin: Debug share ────────────────────────────────────────────

@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.m57.hermescontrol.BuildConfig
 import com.m57.hermescontrol.data.model.ActionResponse
 import com.m57.hermescontrol.data.model.ActionStatusResponse
+import com.m57.hermescontrol.data.model.BackupTriggerRequest
 import com.m57.hermescontrol.data.model.CheckpointsResponse
 import com.m57.hermescontrol.data.model.CredentialPoolProvider
 import com.m57.hermescontrol.data.model.CuratorResponse
@@ -17,6 +18,7 @@ import com.m57.hermescontrol.data.model.StatusResponse
 import com.m57.hermescontrol.data.model.SystemStatsResponse
 import com.m57.hermescontrol.data.model.UpdateCheckResponse
 import com.m57.hermescontrol.data.remote.ApiClient
+import com.m57.hermescontrol.data.remote.NetworkError
 import com.m57.hermescontrol.data.remote.NetworkResult
 import com.m57.hermescontrol.data.remote.safeApiCall
 import com.m57.hermescontrol.ui.common.ToastHost
@@ -32,6 +34,9 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.toRequestBody
 
 data class SystemUiState(
     val isLoading: Boolean = false,
@@ -64,8 +69,11 @@ data class SystemUiState(
     val hookTimeout: String = "",
     val hookApprove: Boolean = true,
     val creatingHook: Boolean = false,
-    // Import
-    val importPath: String = "",
+    // Import (issue #786): SAF-picked backup archive staged by the screen
+    val importFileName: String? = null,
+    val isImporting: Boolean = false,
+    // True while the async backup-archive retry loop is running
+    val isDownloading: Boolean = false,
     // Debug share
     val shareRedact: Boolean = true,
     val sharing: Boolean = false,
@@ -79,12 +87,18 @@ class SystemViewModel :
     ToastHost {
     companion object {
         private const val TAG = "SystemViewModel"
+
+        // The backup action is async — retry a 404 download until the zip
+        // exists (up to ~3 minutes, 328MB backups took ~70s in testing).
+        private const val DOWNLOAD_RETRY_DELAY_MS = 5_000L
+        private const val MAX_DOWNLOAD_ATTEMPTS = 36
     }
 
     private val _uiState = MutableStateFlow(SystemUiState())
     val uiState: StateFlow<SystemUiState> = _uiState.asStateFlow()
 
     private var actionPollingJob: Job? = null
+    private var downloadJob: Job? = null
 
     // ── Full parallel data load ────────────────────────────────────────
 
@@ -417,7 +431,12 @@ class SystemViewModel :
 
     fun triggerBackup() {
         viewModelScope.launch {
-            val result = withContext(Dispatchers.IO) { safeApiCall { ApiClient.hermesApi.triggerBackup() } }
+            val result =
+                withContext(Dispatchers.IO) {
+                    safeApiCall {
+                        ApiClient.hermesApi.triggerBackup(BackupTriggerRequest())
+                    }
+                }
             when (result) {
                 is NetworkResult.Success -> {
                     _uiState.update {
@@ -436,38 +455,123 @@ class SystemViewModel :
         }
     }
 
-    fun downloadBackup() {
+    /**
+     * Download the triggered backup archive. The backup action is ASYNC — the
+     * trigger returns the path instantly, but the zip (can be hundreds of MB)
+     * takes a while to write. The backend 404s ("Backup not found") until the
+     * file exists, so a 404 is retried with a delay instead of failing the tap.
+     * The @Streaming body is handed to [onBody] — the screen streams it to
+     * Downloads via MediaImageStore (never buffered in memory).
+     */
+    fun downloadBackup(onBody: (body: okhttp3.ResponseBody, fileName: String) -> Unit) {
         val archive =
             _uiState.value.backupArchive ?: run {
                 _uiState.update { it.copy(toastMessage = "No backup archive available") }
                 return
             }
+        // Single-flight: a second tap while a retry loop is running must not
+        // spawn a parallel loop (logcat showed interleaved duplicate requests).
+        downloadJob?.cancel()
+        downloadJob =
+            viewModelScope.launch {
+                _uiState.update { it.copy(isDownloading = true) }
+                try {
+                    var attempt = 0
+                    while (attempt < MAX_DOWNLOAD_ATTEMPTS) {
+                        val result =
+                            withContext(Dispatchers.IO) {
+                                safeApiCall { ApiClient.hermesApi.downloadBackup(archive) }
+                            }
+                        when (result) {
+                            is NetworkResult.Success -> {
+                                // @Streaming body — hand it off as-is; the screen
+                                // streams it to Downloads (never bytes() — OOM).
+                                onBody(result.data, archive.substringAfterLast('/'))
+                                return@launch
+                            }
+
+                            is NetworkResult.Failure -> {
+                                val code = (result.error as? NetworkError.Http)?.code
+                                if (code == 404) {
+                                    // Live countdown so the wait is visible —
+                                    // 328MB backups took ~60s in testing.
+                                    val elapsed = attempt * DOWNLOAD_RETRY_DELAY_MS / 1000
+                                    _uiState.update {
+                                        it.copy(toastMessage = "Waiting for backup… ${elapsed}s")
+                                    }
+                                    attempt++
+                                    delay(DOWNLOAD_RETRY_DELAY_MS)
+                                } else {
+                                    _uiState.update {
+                                        it.copy(toastMessage = "Failed to download backup: ${result.error.message}")
+                                    }
+                                    return@launch
+                                }
+                            }
+                        }
+                    }
+                    _uiState.update { it.copy(toastMessage = "Backup is still being created — try again in a moment") }
+                } finally {
+                    _uiState.update { it.copy(isDownloading = false) }
+                }
+            }
+    }
+
+    fun setImportFile(name: String) {
+        _uiState.update { it.copy(importFileName = name) }
+    }
+
+    fun clearImportFile() {
+        _uiState.update { it.copy(importFileName = null) }
+    }
+
+    fun importArchive(
+        fileName: String,
+        bytes: ByteArray,
+        mimeType: String,
+    ) {
+        // Mirrors FilesViewModel.uploadFile: multipart file + force (issue #786)
+        val forceBody = "false".toRequestBody("text/plain".toMediaTypeOrNull())
+        val part =
+            MultipartBody.Part.createFormData(
+                "file",
+                fileName,
+                bytes.toRequestBody(mimeType.toMediaTypeOrNull()),
+            )
+        _uiState.update { it.copy(isImporting = true) }
         viewModelScope.launch {
             val result =
                 withContext(Dispatchers.IO) {
-                    safeApiCall { ApiClient.hermesApi.downloadBackup(archive) }
+                    safeApiCall {
+                        ApiClient.hermesApi.importUpload(forceBody, part)
+                    }
                 }
             when (result) {
                 is NetworkResult.Success -> {
-                    _uiState.update { it.copy(toastMessage = "Backup downloaded") }
+                    result.data.name?.let { pollActionStatus(it) }
+                    _uiState.update {
+                        it.copy(
+                            isImporting = false,
+                            importFileName = null,
+                            toastMessage = "Import started",
+                        )
+                    }
                 }
 
                 is NetworkResult.Failure -> {
-                    _uiState.update { it.copy(toastMessage = "Failed to download backup: ${result.error.message}") }
+                    _uiState.update {
+                        it.copy(
+                            isImporting = false,
+                            toastMessage = "Import failed: ${result.error.message}",
+                        )
+                    }
                 }
             }
         }
     }
 
-    fun updateImportPath(v: String) {
-        _uiState.update { it.copy(importPath = v) }
-    }
-
-    fun runImport(path: String) {
-        runOperation(
-            apiCall = { safeApiCall { ApiClient.hermesApi.runImport(mapOf("path" to path)) } },
-            label = "Import",
-        )
+    fun showToast(message: String) {
+        _uiState.update { it.copy(toastMessage = message) }
     }
 
     // ── Debug share actions ────────────────────────────────────────────
