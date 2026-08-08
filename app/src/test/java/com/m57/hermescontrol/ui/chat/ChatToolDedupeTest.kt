@@ -83,6 +83,50 @@ class ChatToolDedupeTest {
     }
 
     @Test
+    fun sameLogicalMessage_whitespaceDrift_stillSame() {
+        // Issue #842: the sealed live bubble holds the RAW streamed text
+        // (leading blank lines), the backend row is CLEANED — same logical
+        // message, must not duplicate on reload.
+        val live = ChatMessage(role = MessageRole.ASSISTANT, content = "\n\noooh fresh angle this time 🤤")
+        val rest = ChatMessage(role = MessageRole.ASSISTANT, content = "oooh fresh angle this time 🤤")
+        assertTrue(sameLogicalMessage(live, rest))
+        assertFalse(sameLogicalMessage(live, ChatMessage(role = MessageRole.ASSISTANT, content = "different reply")))
+    }
+
+    @Test
+    fun sameLogicalMessage_sealRaceTruncatedNarration_prefixCovered() {
+        // Issue #842 (on-device capture): the seal raced the throttled flush and
+        // the orphan missed the last deltas — it ends "...dreamy chickpea" while
+        // the backend persisted the COMPLETE narration "...dreamy chickpea
+        // goodness:". The orphan must count as covered (strict prefix, both
+        // sides substantial) so the reload doesn't ghost the commentary.
+        val orphan =
+            ChatMessage(
+                role = MessageRole.ASSISTANT,
+                content =
+                    "\n\ntool's loaded! 🔍 now searchin' for the **best hummus recipe**" +
+                        " — gimme dat creamy dreamy chickpea",
+            )
+        val rest =
+            ChatMessage(
+                role = MessageRole.ASSISTANT,
+                content =
+                    "tool's loaded! 🔍 now searchin' for the **best hummus recipe**" +
+                        " — gimme dat creamy dreamy chickpea goodness:",
+            )
+        assertTrue(sameLogicalMessage(orphan, rest))
+
+        // A SHORT truncated prefix must NOT swallow a longer message that merely
+        // starts with it ("ok" is not the same message as "okay bestie...").
+        assertFalse(
+            sameLogicalMessage(
+                ChatMessage(role = MessageRole.ASSISTANT, content = "ok"),
+                ChatMessage(role = MessageRole.ASSISTANT, content = "okay bestie, 3 searches comin' up!! 🔍"),
+            ),
+        )
+    }
+
+    @Test
     fun sameLogicalMessage_differentRoles_notSame() {
         val ws = ChatMessage(role = MessageRole.TOOL, content = wsToolContent)
         val rest = ChatMessage(role = MessageRole.ASSISTANT, content = wsToolContent)
@@ -153,6 +197,34 @@ class ChatToolDedupeTest {
         // The RUNNING tool bubble survives the reload
         assertEquals(ToolStatus.RUNNING, merged[1].toolStatus)
         assertEquals("terminal", merged[1].toolName)
+    }
+
+    @Test
+    fun merge_sealedCommentaryWithLeadingWhitespace_noDuplicate() {
+        // Issue #842 (on-device capture 2026-08-08): the app seals the RAW
+        // streamed commentary — which can carry leading blank lines the model
+        // emits before its narration — while the backend persists a CLEANED
+        // copy. A reload merge with exact-content matching treated them as
+        // different messages and added the REST copy on top: the commentary
+        // duplicated ~10s after the stream ended. Trim-based matching covers
+        // the sealed live bubble, so no second copy renders.
+        val liveOrphan =
+            ChatMessage(
+                role = MessageRole.ASSISTANT,
+                content = "\n\noooh fresh angle this time — the **Lebanese method** and even hummus fatteh 🤤",
+                timestamp = 3,
+            )
+        val restRow =
+            ChatMessage(
+                role = MessageRole.ASSISTANT,
+                content = "oooh fresh angle this time — the **Lebanese method** and even hummus fatteh 🤤",
+                id = "rest-s-19",
+                timestamp = 3,
+            )
+
+        val merged = mergeTranscriptWithLive(listOf(restRow), listOf(liveOrphan))
+
+        assertEquals("cleaned REST row covers the whitespace-drifting live bubble", 1, merged.size)
     }
 
     @Test
@@ -435,5 +507,108 @@ class ChatToolDedupeTest {
 
         assertEquals(listOf("retry", "retry"), merged.map { it.content })
         assertSame(live, merged.last())
+    }
+
+    // ── Issue #842: MCP/web tool rows (raw `<untrusted_tool_result>` text) ──
+    //
+    // REAL captured shapes (on-device 2026-08-08): the live WS bubble holds
+    // the full tool.complete payload (JSON), while the REST transcript row
+    // stores the SAME call's payload as RAW blob TEXT — not JSON, so content
+    // canonicalization can never produce a key. The gateway `tool_call_id`
+    // (present on BOTH sides) is the 1:1 identity that closes the gap.
+
+    private val wsMcpToolPayload =
+        """{"tool_id":"call_00_1GgRcqEFKA2TR0EkdkN85844","name":"mcp__ddgs__search_text","args":{"query":"Amman weather today"},"duration_s":3.2,"result":{"result":"<untrusted_tool_result source=\"mcp__ddgs__search_text\">\nThe following content was retrieved from an external source.\n{\"title\":\"Amman weather\"}\n</untrusted_tool_result>"}}"""
+
+    private val restMcpToolBlob =
+        """<untrusted_tool_result source="mcp__ddgs__search_text">
+The following content was retrieved from an external source.
+{"title":"Amman weather"}
+</untrusted_tool_result>"""
+
+    @Test
+    fun sameLogicalMessage_mcpBlobRestRow_matchesByCallId() {
+        val live =
+            ChatMessage(
+                role = MessageRole.TOOL,
+                content = wsMcpToolPayload,
+                toolName = "mcp__ddgs__search_text",
+                toolCallId = "call_00_1GgRcqEFKA2TR0EkdkN85844",
+            )
+        val rest =
+            ChatMessage(
+                role = MessageRole.TOOL,
+                content = restMcpToolBlob,
+                id = "rest-s-3",
+                toolCallId = "call_00_1GgRcqEFKA2TR0EkdkN85844",
+            )
+        assertTrue(sameLogicalMessage(live, rest))
+    }
+
+    @Test
+    fun sameLogicalMessage_differentCallIds_notSameEvenWithSameBlob() {
+        val live = ChatMessage(role = MessageRole.TOOL, content = wsMcpToolPayload, toolCallId = "call_00_aaa")
+        val rest = ChatMessage(role = MessageRole.TOOL, content = restMcpToolBlob, toolCallId = "call_00_bbb")
+        assertFalse(sameLogicalMessage(live, rest))
+    }
+
+    @Test
+    fun sameLogicalMessage_callIdMissing_fallsBackToContentCanonical() {
+        // Old cached rows may lack the call id — terminal-style content
+        // canonicalization must still match.
+        val ws = ChatMessage(role = MessageRole.TOOL, content = wsToolContent, toolName = "terminal")
+        val rest = ChatMessage(role = MessageRole.TOOL, content = restToolContent)
+        assertTrue(sameLogicalMessage(ws, rest))
+    }
+
+    @Test
+    fun mergeTranscriptWithLive_mcpToolRows_collapseToOne() {
+        // Issue #842 on-device repro: the REST page carries the same MCP
+        // search call as raw blob text; with the call id present the merge
+        // must NOT add a second tool bubble.
+        val live =
+            ChatMessage(
+                role = MessageRole.TOOL,
+                content = wsMcpToolPayload,
+                toolName = "mcp__ddgs__search_text",
+                toolCallId = "call_00_1GgRcqEFKA2TR0EkdkN85844",
+                timestamp = 2,
+            )
+        val rest =
+            ChatMessage(
+                role = MessageRole.TOOL,
+                content = restMcpToolBlob,
+                id = "rest-s-3",
+                toolCallId = "call_00_1GgRcqEFKA2TR0EkdkN85844",
+                timestamp = 2,
+            )
+        val merged = mergeTranscriptWithLive(listOf(rest), listOf(live))
+        // One copy survives (the merge keeps the REST row as server truth and
+        // drops the covered live bubble — in the real flow mapServerMessages
+        // already substituted the live row before this merge, preserving the
+        // tool name + rich payload). The invariant: never two bubbles.
+        assertEquals(1, merged.size)
+        assertEquals(MessageRole.TOOL, merged.single().role)
+    }
+
+    @Test
+    fun dedupeCached_mcpBlobRestRow_droppedWhenWsCopyExists() {
+        val wsTool =
+            ChatMessage(
+                role = MessageRole.TOOL,
+                content = wsMcpToolPayload,
+                toolName = "mcp__ddgs__search_text",
+                toolCallId = "call_00_1GgRcqEFKA2TR0EkdkN85844",
+            )
+        val restTool =
+            ChatMessage(
+                role = MessageRole.TOOL,
+                content = restMcpToolBlob,
+                id = "rest-s-3",
+                toolCallId = "call_00_1GgRcqEFKA2TR0EkdkN85844",
+            )
+        val deduped = dedupeCachedMessages(listOf(wsTool, restTool))
+        assertEquals(1, deduped.size)
+        assertEquals(wsTool, deduped.single())
     }
 }

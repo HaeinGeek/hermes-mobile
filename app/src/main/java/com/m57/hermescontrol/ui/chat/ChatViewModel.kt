@@ -107,7 +107,15 @@ internal fun canonicalToolResultKey(content: String): String? {
  * True when [a] and [b] are the same logical message (the WS-persisted and
  * REST-persisted copies of one row — they carry different ids, see #771).
  * Tool messages match on their normalized result payload; other roles on
- * exact content.
+ * exact content, IGNORING leading/trailing whitespace.
+ *
+ * Issue #842: the app seals the RAW streamed text (which can carry leading
+ * blank lines the model emits before its narration), while the backend
+ * persists a CLEANED copy (leading whitespace stripped). An exact-content
+ * compare made the reload merge treat them as different messages and add
+ * the REST copy on top — the commentary duplicated ~10s after the stream
+ * ended. Trim closes the drift: the sealed live bubble is covered by the
+ * REST row and the duplicate never renders.
  */
 internal fun sameLogicalMessage(
     a: ChatMessage,
@@ -115,11 +123,31 @@ internal fun sameLogicalMessage(
 ): Boolean {
     if (a.role != b.role) return false
     if (a.role == MessageRole.TOOL) {
+        // Issue #842: prefer the gateway's tool call id when both sides carry
+        // it — the REST transcript stores `tool_call_id` and the live WS
+        // bubble keeps it from `tool.start`. Content canonicalization cannot
+        // cover MCP/web tools: the REST side stores the payload as raw
+        // `<untrusted_tool_result>` text (not JSON), so it has no key at all.
+        if (a.toolCallId.isNotBlank() && b.toolCallId.isNotBlank()) {
+            return a.toolCallId == b.toolCallId
+        }
         val ka = canonicalToolResultKey(a.content)
         val kb = canonicalToolResultKey(b.content)
         return ka != null && ka == kb
     }
-    return a.content == b.content
+    val ta = a.content.trim()
+    val tb = b.content.trim()
+    if (ta == tb) return true
+    // Issue #842: a seal race can leave the live orphan a few trailing tokens
+    // short of the streamed narration (the last delta was still in the
+    // throttled buffer when tool.start sealed the message). The backend
+    // persists the COMPLETE copy, so the orphan is a strict prefix of the
+    // REST row. Accept prefix-covering only for substantial texts (>=40
+    // chars) so a short reply can never be swallowed by a longer message
+    // that merely starts with it.
+    return ta.length >= 40 &&
+        tb.length >= 40 &&
+        (tb.startsWith(ta) || ta.startsWith(tb))
 }
 
 /**
@@ -620,7 +648,15 @@ class ChatViewModel(
             is WsEvent.MessageComplete,
             is WsEvent.MessageDone,
             is WsEvent.ToolStart,
-            -> streamingController.flushPendingReasoning()
+            -> {
+                streamingController.flushPendingReasoning()
+                // Issue #842: the token buffer can hold deltas that landed
+                // <33ms before the transition. The reducer seals the
+                // streaming message into the orphan at tool.start — flush
+                // first so the seal carries the COMPLETE narration (a
+                // truncated seal fails the later REST dedupe and ghosts).
+                streamingController.flushPendingTokens()
+            }
 
             else -> Unit
         }
@@ -987,6 +1023,12 @@ class ChatViewModel(
             }
 
             WsMethods.SESSION_INTERRUPT -> {
+                // Issue #842 follow-up: seal whatever the agent streamed so far
+                // (interim commentary + partial answer) BEFORE clearing the
+                // streaming state. The old tool.start orphan seal used to leave
+                // pre-tool text behind on interrupt; with that seal gone, the
+                // partial would otherwise vanish entirely.
+                sealStreamingMessageIfAny()
                 _uiState.update {
                     it.copy(
                         isAgentTyping = false,
@@ -1907,6 +1949,27 @@ class ChatViewModel(
 
     // ── Session resume recovery (desktop parity) ─────────────────────────
 
+    /**
+     * Persists the in-flight streaming message as-is (isStreaming=false) so an
+     * interrupted turn keeps the text the user already saw on screen. No-op
+     * when there is no streaming content/reasoning to save. (Issue #842
+     * follow-up: replaces the old tool.start orphan seal — the streaming
+     * message now survives tool calls, so interrupts are the only path that
+     * would otherwise drop the partial text.)
+     */
+    private fun sealStreamingMessageIfAny() {
+        val streaming = _streamingState.value.streamingMessage ?: return
+        if (streaming.content.isBlank() && streaming.reasoningText.isBlank()) return
+        val finalized = streaming.copy(isStreaming = false)
+        _uiState.update { it.copy(messages = (it.messages + finalized).dedupeById()) }
+        val sid = _uiState.value.currentSessionId
+        if (sid != null) {
+            viewModelScope.launch(ioDispatcher) {
+                repo.persistMessage(finalized, sid)
+            }
+        }
+    }
+
     private fun resetSessionState(
         sessionId: String?,
         title: String,
@@ -2281,7 +2344,11 @@ class ChatViewModel(
                                 }
                             }
                             val merged = mergedList.distinctBy { it.id }
-                            if (sameMessages(current.messages, merged)) current else current.copy(messages = merged)
+                            if (sameMessages(current.messages, merged)) {
+                                current
+                            } else {
+                                current.copy(messages = merged)
+                            }
                         }
                     }
 
@@ -2510,6 +2577,18 @@ class ChatViewModel(
                 }
             }
 
+        // Issue #842: REST transcript rows carry the gateway's `tool_call_id`
+        // — prefer matching live bubbles by that 1:1 identity. It works for
+        // EVERY tool shape, including MCP/web rows whose REST copy is raw
+        // `<untrusted_tool_result>` text with no JSON key to canonicalize.
+        val liveToolByCallId = linkedMapOf<String, ChatMessage>()
+        _uiState.value.messages
+            .filter { it.role == MessageRole.TOOL && it.toolCallId.isNotBlank() }
+            .sortedBy { it.id.startsWith("rest-") } // prefer live WS copies
+            .forEach { msg ->
+                liveToolByCallId.putIfAbsent(msg.toolCallId, msg)
+            }
+
         val mapped = mutableListOf<ChatMessage>()
         // The gateway stores a reasoning-model's thinking as its OWN assistant
         // row (content = "", reasoning = trace) directly before the answer row.
@@ -2593,6 +2672,12 @@ class ChatViewModel(
             // keeps the real name, the rich WS payload, AND the same id so
             // Room upserts instead of accumulating a duplicate `rest-` row.
             if (role == MessageRole.TOOL) {
+                // Prefer the gateway call id (1:1, works for every tool
+                // shape), then fall back to result-content matching.
+                liveToolByCallId[msg.toolCallId]?.let { live ->
+                    mapped.add(live)
+                    return@forEachIndexed
+                }
                 canonicalToolResultKey(rawContent)?.let { key ->
                     liveToolByResult[key]?.let { live ->
                         mapped.add(live)
@@ -2607,6 +2692,7 @@ class ChatViewModel(
                     role = role,
                     content = finalContent,
                     reasoningText = finalReasoning,
+                    toolCallId = msg.toolCallId,
                     attachments = attachments,
                     timestamp = timestamp,
                     isStreaming = false,
