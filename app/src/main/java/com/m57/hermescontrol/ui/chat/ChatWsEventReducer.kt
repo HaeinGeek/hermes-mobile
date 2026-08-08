@@ -388,6 +388,7 @@ object ChatWsEventReducer {
                 state.copy(
                     messages = state.messages.upsertById(msg),
                     isAgentTyping = false,
+                    clarifyRequest = null,
                 ),
             effects = effects,
         )
