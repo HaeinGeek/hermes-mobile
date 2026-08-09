@@ -37,6 +37,7 @@ import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Search
@@ -53,8 +54,8 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -531,34 +532,26 @@ fun SessionsScreen(
                     modifier = Modifier.weight(1f),
                 )
                 Spacer(modifier = Modifier.width(spacing.sm))
-                IconButton(onClick = { viewModel.toggleSelecting() }) {
-                    Icon(
-                        imageVector = if (state.isSelecting) Icons.Filled.Close else Icons.Filled.SelectAll,
-                        contentDescription =
-                            if (state.isSelecting) {
-                                stringResource(R.string.content_desc_exit_selection)
-                            } else {
-                                stringResource(R.string.content_desc_enter_selection)
-                            },
-                    )
-                }
-                Spacer(modifier = Modifier.width(spacing.sm))
                 // Empty-session cleanup (issue #787) — grey/disabled when 0.
-                IconButton(
-                    onClick = { viewModel.requestEmptyCleanup() },
-                    enabled = state.emptyCount > 0,
+                BadgedBox(
+                    badge = {
+                        if (state.emptyCount > 0) {
+                            Badge { Text("${state.emptyCount}") }
+                        }
+                    },
                 ) {
-                    BadgedBox(
-                        badge = {
-                            if (state.emptyCount > 0) {
-                                Badge { Text("${state.emptyCount}") }
-                            }
-                        },
+                    FilledTonalButton(
+                        onClick = { viewModel.requestEmptyCleanup() },
+                        enabled = state.emptyCount > 0,
+                        contentPadding = PaddingValues(horizontal = spacing.md, vertical = 8.dp),
                     ) {
                         Icon(
                             imageVector = Icons.Filled.DeleteSweep,
-                            contentDescription = stringResource(R.string.sessions_empty_cleanup_desc),
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
                         )
+                        Spacer(modifier = Modifier.width(spacing.xs))
+                        Text(stringResource(R.string.sessions_empty_cleanup_desc))
                     }
                 }
             }
@@ -695,20 +688,20 @@ fun SessionsScreen(
                             ) {
                                 StatCard(
                                     label = stringResource(R.string.sessions_stat_total),
-                                    value = if (state.isLoadingStats) "…" else state.stats.total.toString(),
+                                    value = if (state.isLoadingStats) "…" else formatCompactCount(state.stats.total),
                                     icon = Icons.Filled.History,
                                     modifier = Modifier.weight(1f).fillMaxHeight(),
                                 )
                                 StatCard(
-                                    label = stringResource(R.string.sessions_stat_active),
-                                    value = if (state.isLoadingStats) "…" else state.stats.active.toString(),
-                                    icon = Icons.Filled.CheckCircle,
-                                    accentColor = statusColors.success,
+                                    label = stringResource(R.string.sessions_stat_messages),
+                                    value = if (state.isLoadingStats) "…" else formatCompactCount(state.stats.messages),
+                                    icon = Icons.Filled.Email,
                                     modifier = Modifier.weight(1f).fillMaxHeight(),
                                 )
-                                // Prune button card
+                                // Prune button — compact card sized to its label, so the
+                                // stat cards keep enough width for large counts.
                                 Card(
-                                    modifier = Modifier.weight(1f).fillMaxHeight(),
+                                    modifier = Modifier.fillMaxHeight(),
                                     colors =
                                         CardDefaults.cardColors(
                                             containerColor = MaterialTheme.colorScheme.surfaceContainer,
@@ -716,17 +709,22 @@ fun SessionsScreen(
                                     onClick = { viewModel.showPruneDialog() },
                                 ) {
                                     Box(
-                                        modifier = Modifier.fillMaxSize().padding(spacing.md),
+                                        // NOTE: fillMaxHeight only — never fillMaxSize here.
+                                        // An unweighted Row child with fillMaxSize expands to the
+                                        // full row width and starves the weighted stat cards.
+                                        modifier = Modifier.fillMaxHeight().padding(horizontal = spacing.md),
                                         contentAlignment = Alignment.Center,
                                     ) {
-                                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Column(
+                                            horizontalAlignment = Alignment.CenterHorizontally,
+                                            verticalArrangement = Arrangement.spacedBy(spacing.xs),
+                                        ) {
                                             Icon(
                                                 imageVector = Icons.Filled.DeleteSweep,
                                                 contentDescription = null,
                                                 tint = statusColors.warning,
                                                 modifier = Modifier.size(20.dp),
                                             )
-                                            Spacer(modifier = Modifier.height(spacing.xs))
                                             Text(
                                                 text = stringResource(R.string.sessions_action_prune),
                                                 style = MaterialTheme.typography.labelMedium,

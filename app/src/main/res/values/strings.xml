@@ -506,13 +506,13 @@
     <string name="sessions_search_match_label">Match</string>
     <string name="sessions_search_model_label">Model</string>
     <string name="sessions_stat_total">Total</string>
-    <string name="sessions_stat_active">Active</string>
+    <string name="sessions_stat_messages">Messages</string>
     <string name="sessions_action_prune">Prune</string>
     <string name="sessions_prune_title">Prune Old Sessions</string>
     <string name="sessions_prune_desc">Delete sessions older than the specified number of days.</string>
     <string name="sessions_prune_days_label">Days threshold</string>
     <string name="sessions_prune_confirm">Prune</string>
-    <string name="sessions_empty_cleanup_desc">Delete empty sessions</string>
+    <string name="sessions_empty_cleanup_desc">Empty</string>
     <string name="sessions_empty_cleanup_title">Delete empty sessions?</string>
     <string name="sessions_empty_cleanup_message">Delete %1$d empty session(s). Active and archived sessions are kept.</string>
     <string name="sessions_empty_cleanup_confirm">Delete</string>
@@ -527,8 +527,6 @@
     <string name="sessions_action_rename">Rename</string>
     <string name="sessions_rename_title">Rename Session</string>
     <string name="sessions_rename_hint">Session title</string>
-    <string name="content_desc_enter_selection">Select sessions</string>
-    <string name="content_desc_exit_selection">Exit selection</string>
 
     <!-- Toolsets Screen -->
     <string name="toolsets_empty_title">No toolsets reported</string>
