@@ -1,6 +1,5 @@
-package com.m57.hermescontrol.ui.chat.components
+package com.m57.hermescontrol.ui.chat.fullbleed
 
-import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -9,22 +8,30 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
-import com.m57.hermescontrol.ui.chat.ChatBubble
 import com.m57.hermescontrol.ui.chat.ChatMessage
 import kotlinx.coroutines.delay
 
 /**
- * Wraps a streaming [ChatBubble] with a word-by-word typing reveal effect.
+ * Wraps a streaming [FullBleedAgentMessage] with a word-by-word typing reveal
+ * effect (full-bleed counterpart to
+ * [com.m57.hermescontrol.ui.chat.components.StreamingBubbleWithTypingEffect]).
+ *
  * Shows words one at a time at [typingDelayMs] intervals while the message is
- * still streaming. When streaming completes the full text is shown immediately.
- * The underlying [ChatMessage.content] in state is never modified — this is a
- * display-only transformation.
+ * still streaming. When streaming completes the full text is shown
+ * immediately. The underlying [ChatMessage.content] in state is never
+ * modified — this is a display-only transformation.
+ *
+ * Deliberately a separate wrapper (not a genericized version of the bubble
+ * one): the two renderers are parallel code paths by design (issue #866),
+ * and the wrappers die together when the bubble path is removed.
  */
 @Composable
-fun StreamingBubbleWithTypingEffect(
+internal fun StreamingFullBleedWithTypingEffect(
     streaming: ChatMessage,
     typingDelayMs: Int,
     isDark: Boolean,
+    showTurnHeader: Boolean = true,
+    showReasoning: Boolean = true,
     onAnimationComplete: () -> Unit = {},
 ) {
     var visibleWordCount by remember { mutableIntStateOf(0) }
@@ -60,7 +67,7 @@ fun StreamingBubbleWithTypingEffect(
                 val words = currentContent.value.split(" ")
                 wordCount = words.size
                 if (visibleWordCount < wordCount) continue
-                delay(100) // was 10 — reduced from 100Hz to 10Hz
+                delay(100)
             }
         }
         visibleWordCount = Int.MAX_VALUE
@@ -78,8 +85,10 @@ fun StreamingBubbleWithTypingEffect(
         words.take(visibleCount.coerceAtLeast(1)).joinToString(" ") +
             if (caretVisible && currentIsStreaming.value) "▍" else ""
 
-    ChatBubble(
+    FullBleedAgentMessage(
         message = streaming.copy(content = displayText),
+        showTurnHeader = showTurnHeader,
+        showReasoning = showReasoning,
         isDarkTheme = isDark,
         searchQuery = "",
         isCurrentMatch = false,
