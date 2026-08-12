@@ -265,11 +265,8 @@ data class ChatUiState(
     val showSessionPicker: Boolean = false,
     // /update confirm dialog (issue #862) — the command is handled client-side
     val updateConfirmOpen: Boolean = false,
-    // Search state
-    val isSearchActive: Boolean = false,
-    val searchQuery: String = "",
-    val searchMatchIndices: List<Int> = emptyList(),
-    val currentSearchMatchIndex: Int = -1,
+    // Search state lives in ChatSearchState (searchDelegate.searchState) — a
+    // snapshot-backed holder, so search updates don't recompose the whole UI.
     // Cached settings
     val typingEffectEnabled: Boolean = true,
     val typingEffectDelayMs: Int = 30,
@@ -481,6 +478,10 @@ class ChatViewModel(
             uiState = _uiState,
             dispatcher = searchDispatcher,
         )
+
+    /** Snapshot-backed in-chat search state (see [ChatSearchDelegate]). */
+    val searchState: ChatSearchState
+        get() = searchDelegate.searchState
     private val attachmentsDelegate = ChatAttachmentsDelegate(uiState = _uiState)
 
     /**
@@ -2112,10 +2113,6 @@ class ChatViewModel(
                 sudoPrompt = null,
                 secretPrompt = null,
                 showSessionPicker = false,
-                isSearchActive = false,
-                searchQuery = "",
-                searchMatchIndices = emptyList(),
-                currentSearchMatchIndex = -1,
                 showModelPicker = false,
                 modelPickerLoading = false,
                 currentSessionModel = null,

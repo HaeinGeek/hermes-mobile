@@ -146,6 +146,9 @@ fun ChatScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val streamingState by viewModel.streamingState.collectAsStateWithLifecycle()
     val credentialWarning by HermesWsClient.credentialWarning.collectAsStateWithLifecycle()
+    // Snapshot-backed search state — read directly so only the scopes that
+    // read its fields recompose on search changes (bar, matched bubbles).
+    val searchState = viewModel.searchState
     val lifecycleOwner = LocalLifecycleOwner.current
     val listState = rememberLazyListState()
     val scrollScope = rememberCoroutineScope()
@@ -402,9 +405,6 @@ fun ChatScreen(
         errorMessage = state.errorMessage,
         backgroundCompleteMessage = state.backgroundCompleteMessage,
         openError = state.openError,
-        isSearchActive = state.isSearchActive,
-        currentSearchMatchIndex = state.currentSearchMatchIndex,
-        searchMatchIndices = state.searchMatchIndices,
         clarifyRequest = state.clarifyRequest,
         sudoPrompt = state.sudoPrompt,
         secretPrompt = state.secretPrompt,
@@ -477,9 +477,9 @@ fun ChatScreen(
             IconButton(onClick = { viewModel.toggleSearch() }) {
                 Icon(
                     imageVector =
-                        if (state.isSearchActive) Icons.Filled.Close else Icons.Filled.Search,
+                        if (searchState.isActive) Icons.Filled.Close else Icons.Filled.Search,
                     contentDescription =
-                        if (state.isSearchActive) {
+                        if (searchState.isActive) {
                             stringResource(
                                 R.string.chat_action_close_search,
                             )
@@ -519,7 +519,7 @@ fun ChatScreen(
             }
 
             AnimatedVisibility(
-                visible = state.isSearchActive,
+                visible = searchState.isActive,
                 enter = expandVertically() + fadeIn(),
                 exit = shrinkVertically() + fadeOut(),
             ) {
@@ -535,10 +535,11 @@ fun ChatScreen(
                 ) {
                     Box(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
                         SearchBarRow(
-                            searchQuery = state.searchQuery,
+                            searchQuery = searchState.query,
                             onQueryChange = { viewModel.setSearchQuery(it) },
-                            searchMatchCount = state.searchMatchIndices.size,
-                            currentMatchIndex = state.currentSearchMatchIndex,
+                            searchMatchCount = searchState.matchTotal,
+                            searchMatchCapped = searchState.matchCapped,
+                            currentMatchIndex = searchState.currentIndex,
                             onNavigateUp = { viewModel.navigateSearchMatch(-1) },
                             onNavigateDown = { viewModel.navigateSearchMatch(1) },
                             onClose = { viewModel.clearSearch() },
@@ -583,10 +584,7 @@ fun ChatScreen(
                 FullBleedChatList(
                     messages = state.messages,
                     streamingMessage = streamingState.streamingMessage,
-                    isSearchActive = state.isSearchActive,
-                    searchQuery = state.searchQuery,
-                    currentSearchMatchIndex = state.currentSearchMatchIndex,
-                    searchMatchIndices = state.searchMatchIndices,
+                    searchState = searchState,
                     typingEffectEnabled = state.typingEffectEnabled,
                     typingEffectDelayMs = state.typingEffectDelayMs,
                     maxToolCallsPerTurn = state.maxToolCallsPerTurn,
@@ -594,6 +592,7 @@ fun ChatScreen(
                     isLoadingOlder = state.isLoadingOlder,
                     isDark = isDark,
                     listState = listState,
+                    scrollController = scrollController,
                     lastAnimatedMessageId = lastAnimatedMessageId,
                     onLastAnimatedMessageIdChange = { lastAnimatedMessageId = it },
                     viewModel = viewModel,

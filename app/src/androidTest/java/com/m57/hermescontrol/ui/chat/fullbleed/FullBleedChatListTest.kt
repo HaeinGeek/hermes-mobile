@@ -9,10 +9,14 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.MediumTest
 import com.m57.hermescontrol.ui.chat.ChatMessage
+import com.m57.hermescontrol.ui.chat.ChatSearchState
 import com.m57.hermescontrol.ui.chat.ChatViewModel
 import com.m57.hermescontrol.ui.chat.MessageRole
 import com.m57.hermescontrol.ui.chat.ToolStatus
+import com.m57.hermescontrol.ui.chat.components.ChatScrollController
 import io.mockk.mockk
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -46,19 +50,22 @@ class FullBleedChatListTest {
         clarify: Boolean = false,
     ) {
         composeTestRule.setContent {
+            val listState = LazyListState()
             FullBleedChatList(
                 messages = messages,
                 streamingMessage = streamingMessage,
-                isSearchActive = false,
-                searchQuery = "",
-                currentSearchMatchIndex = -1,
-                searchMatchIndices = emptyList(),
+                searchState = ChatSearchState(),
                 typingEffectEnabled = false,
                 typingEffectDelayMs = 30,
                 isLoading = false,
                 isLoadingOlder = false,
                 isDark = false,
-                listState = LazyListState(),
+                listState = listState,
+                scrollController =
+                    ChatScrollController(
+                        listState = listState,
+                        scope = CoroutineScope(Dispatchers.Main.immediate),
+                    ),
                 lastAnimatedMessageId = null,
                 onLastAnimatedMessageIdChange = {},
                 viewModel = mockk<ChatViewModel>(relaxed = true),

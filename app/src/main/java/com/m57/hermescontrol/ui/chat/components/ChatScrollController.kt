@@ -151,9 +151,36 @@ class ChatScrollController(
         scope.launch { listState.scrollToItem(index, offset) }
     }
 
-    /** Navigate to a search match index (serialized through [scope]). */
-    fun scrollToSearchMatch(index: Int) {
-        scope.launch { listState.animateScrollToItem(index) }
+    /**
+     * Navigate to a search match (serialized through [scope]).
+     *
+     * [index] is the LAZY-COLUMN item index (see [messageIdToLazyIndex] —
+     * message indices ≠ lazy indices once reasoning/tool items exist).
+     * Top-aligns the item, then repositions it so the matched WORD lands
+     * comfortably in view (~1/3 down the viewport): the word's position is
+     * estimated as textOffset / contentLength × measured item height. Mirrors
+     * the verified scrollToBottom pattern (top-align → measure → adjust).
+     *
+     * @param contentOffset character offset of the word in the message text.
+     * @param contentLength total length of the message text.
+     */
+    fun scrollToSearchMatch(
+        index: Int,
+        contentOffset: Int,
+        contentLength: Int,
+    ) {
+        scope.launch {
+            listState.animateScrollToItem(index)
+            val info = listState.layoutInfo
+            val item = info.visibleItemsInfo.firstOrNull { it.index == index } ?: return@launch
+            val viewportHeight = info.viewportEndOffset - info.viewportStartOffset
+            val fraction = if (contentLength > 0) contentOffset.toFloat() / contentLength else 0f
+            val targetTop = (viewportHeight / 3) - (item.size * fraction).toInt()
+            val delta = item.offset - targetTop
+            if (delta != 0) {
+                listState.animateScrollBy(delta.toFloat())
+            }
+        }
     }
 }
 
