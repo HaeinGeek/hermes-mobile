@@ -28,7 +28,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.m57.hermescontrol.R
 import com.m57.hermescontrol.theme.LocalHermesStatusColors
 import com.m57.hermescontrol.ui.channels.ChannelsUiState
 import com.m57.hermescontrol.ui.channels.OnboardingPhase
@@ -87,12 +89,12 @@ internal fun TelegramOnboardingDialog(
 
                     OnboardingPhase.WAITING -> {
                         Text(
-                            text = "Open Telegram and scan the QR code displayed in the app.",
+                            text = stringResource(R.string.tg_onboarding_scan_hint),
                             style = MaterialTheme.typography.bodyMedium,
                         )
                         if (state.onboardingExpiresIn.isNotEmpty()) {
                             Text(
-                                text = "QR code expires in: ${state.onboardingExpiresIn}",
+                                text = stringResource(R.string.tg_onboarding_qr_expires, state.onboardingExpiresIn),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -102,13 +104,13 @@ internal fun TelegramOnboardingDialog(
                     OnboardingPhase.READY -> {
                         state.onboardingBotUsername?.let { username ->
                             Text(
-                                text = "Connected as @$username",
+                                text = stringResource(R.string.tg_onboarding_connected_as, username),
                                 style = MaterialTheme.typography.bodyMedium,
                             )
                         }
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = "Allowed users:",
+                            text = stringResource(R.string.tg_onboarding_allowed_users),
                             style = MaterialTheme.typography.titleSmall,
                         )
                         state.onboardingDetectedOwnerId?.let { ownerId ->
@@ -146,12 +148,15 @@ internal fun TelegramOnboardingDialog(
                             OutlinedTextField(
                                 value = state.onboardingNewAllowedId,
                                 onValueChange = onNewAllowedIdChange,
-                                placeholder = { Text("Telegram user ID") },
+                                placeholder = { Text(stringResource(R.string.tg_onboarding_user_id_placeholder)) },
                                 singleLine = true,
                                 modifier = Modifier.weight(1f),
                             )
                             IconButton(onClick = onAddAllowedId) {
-                                Icon(Icons.Filled.Add, contentDescription = "Add user ID")
+                                Icon(
+                                    Icons.Filled.Add,
+                                    contentDescription = stringResource(R.string.tg_onboarding_add_user_id),
+                                )
                             }
                         }
                     }
@@ -165,7 +170,7 @@ internal fun TelegramOnboardingDialog(
                                 CircularProgressIndicator()
                                 Spacer(modifier = Modifier.height(8.dp))
                                 Text(
-                                    text = "Saving configuration…",
+                                    text = stringResource(R.string.tg_onboarding_saving),
                                     style = MaterialTheme.typography.bodyMedium,
                                 )
                             }
@@ -183,7 +188,7 @@ internal fun TelegramOnboardingDialog(
                         onClick = onApply,
                         enabled = state.onboardingAllowedIds.isNotEmpty(),
                     ) {
-                        Text("Save and restart")
+                        Text(stringResource(R.string.tg_onboarding_save_restart))
                     }
                 }
 

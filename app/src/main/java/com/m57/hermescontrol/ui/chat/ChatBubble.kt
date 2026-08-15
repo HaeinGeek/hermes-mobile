@@ -518,7 +518,7 @@ internal fun InlineAttachment(
                         } else {
                             Icon(
                                 imageVector = Icons.Default.Download,
-                                contentDescription = "Save ${attachment.name}",
+                                contentDescription = stringResource(R.string.chat_save_attachment, attachment.name),
                                 tint = MaterialTheme.colorScheme.primary,
                             )
                         }

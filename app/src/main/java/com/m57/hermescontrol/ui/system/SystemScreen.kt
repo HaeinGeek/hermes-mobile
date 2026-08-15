@@ -1,5 +1,6 @@
 package com.m57.hermescontrol.ui.system
 
+import android.app.Application
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -125,8 +126,10 @@ private fun formatDuration(totalSeconds: Double): String {
 fun SystemScreen(
     modifier: Modifier = Modifier,
     onOpenDrawer: (() -> Unit)? = null,
-    viewModel: SystemViewModel = viewModel { SystemViewModel() },
+    viewModel: SystemViewModel? = null,
 ) {
+    val app = LocalContext.current.applicationContext as Application
+    val viewModel = viewModel ?: viewModel { SystemViewModel(app) }
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val spacing = LocalSpacing.current
     val statusColors = LocalHermesStatusColors.current
@@ -854,7 +857,7 @@ private fun LazyListScope.gatewaySection(
                     // Auth required
                     status.auth_required?.let { auth ->
                         InfoRow(
-                            label = "Auth required",
+                            label = stringResource(R.string.system_auth_required),
                             value = if (auth) "yes" else "no",
                         )
                     }
@@ -1670,7 +1673,7 @@ private fun LazyListScope.actionLogSection(
                                 }
                                 if (lines.size > 20) {
                                     Text(
-                                        text = "... ${lines.size - 20} more line(s)",
+                                        text = stringResource(R.string.system_more_lines, lines.size - 20),
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )

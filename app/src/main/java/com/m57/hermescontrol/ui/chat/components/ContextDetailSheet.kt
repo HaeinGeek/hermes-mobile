@@ -20,8 +20,10 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.m57.hermescontrol.R
 import com.m57.hermescontrol.theme.LocalHermesStatusColors
 import com.m57.hermescontrol.ui.chat.ContextBreakdown
 import kotlin.math.min
@@ -67,7 +69,7 @@ fun ContextDetailSheet(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text(
-                text = "Context window",
+                text = stringResource(R.string.context_window),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
             )
@@ -117,15 +119,15 @@ fun ContextDetailSheet(
             )
 
             // Breakdown rows
-            ContextRow(label = "Prompt (input)", value = breakdown.inputTokens)
-            ContextRow(label = "Completion (output)", value = breakdown.outputTokens)
-            ContextRow(label = "Cache read", value = breakdown.cacheReadTokens)
-            ContextRow(label = "Cache write", value = breakdown.cacheWriteTokens)
+            ContextRow(label = stringResource(R.string.context_prompt_input), value = breakdown.inputTokens)
+            ContextRow(label = stringResource(R.string.context_completion_output), value = breakdown.outputTokens)
+            ContextRow(label = stringResource(R.string.context_cache_read), value = breakdown.cacheReadTokens)
+            ContextRow(label = stringResource(R.string.context_cache_write), value = breakdown.cacheWriteTokens)
             ContextRow(label = "Reasoning", value = breakdown.reasoningTokens)
             ContextRow(label = "Messages", value = breakdown.messageCount.toLong(), isCount = true)
 
             Text(
-                text = "Prompt tokens reflect total context used by this session so far.",
+                text = stringResource(R.string.context_tokens_note),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(bottom = 16.dp),

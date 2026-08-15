@@ -32,9 +32,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.m57.hermescontrol.R
 import com.m57.hermescontrol.data.model.ModelProvider
 import com.m57.hermescontrol.data.model.PinnedModel
 import com.m57.hermescontrol.ui.common.LoadingState
@@ -95,12 +97,12 @@ fun ModelPickerDialog(
             Column {
                 if (isLoading) {
                     LoadingState(
-                        subtitle = "Loading models…",
+                        subtitle = stringResource(R.string.model_picker_loading),
                         modifier = Modifier.fillMaxWidth(),
                     )
                 } else if (providers.isEmpty() && pinnedModels.isEmpty()) {
                     Text(
-                        text = "No models available.",
+                        text = stringResource(R.string.model_picker_no_models),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -143,7 +145,7 @@ fun ModelPickerDialog(
                     SearchBar(
                         query = pickerQuery,
                         onQueryChange = { pickerQuery = it },
-                        placeholder = "Search models and providers...",
+                        placeholder = stringResource(R.string.model_picker_search),
                     )
                     Spacer(modifier = Modifier.height(12.dp))
 

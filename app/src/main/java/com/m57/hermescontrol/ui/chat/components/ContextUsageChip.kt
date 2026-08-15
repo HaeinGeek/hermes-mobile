@@ -15,8 +15,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.m57.hermescontrol.R
 import com.m57.hermescontrol.theme.LocalHermesStatusColors
 import kotlin.math.min
 
@@ -103,7 +105,7 @@ fun ContextUsageChip(
             ) {
                 if (compressionCount != null && compressionCount > 0) {
                     Text(
-                        text = "compressed ×$compressionCount",
+                        text = stringResource(R.string.context_compressed, compressionCount),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.tertiary,
                         maxLines = 1,

@@ -171,13 +171,13 @@ private fun AnalyticsContent(
                         .padding(horizontal = 16.dp, vertical = 8.dp),
             ) {
                 Text(
-                    text = "Most Used Components",
+                    text = stringResource(R.string.analytics_most_used_components),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "Overview of your most active models, skills, and tools.",
+                    text = stringResource(R.string.analytics_overview_desc),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -221,7 +221,7 @@ private fun AnalyticsContent(
             } else {
                 item {
                     Text(
-                        text = "No model data available",
+                        text = stringResource(R.string.analytics_no_model_data),
                         modifier = Modifier.padding(16.dp),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -243,7 +243,7 @@ private fun AnalyticsContent(
             } else {
                 item {
                     Text(
-                        text = "No skill data available",
+                        text = stringResource(R.string.analytics_no_skill_data),
                         modifier = Modifier.padding(16.dp),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -260,7 +260,7 @@ private fun AnalyticsContent(
             } else {
                 item {
                     Text(
-                        text = "No tool data available",
+                        text = stringResource(R.string.analytics_no_tool_data),
                         modifier = Modifier.padding(16.dp),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,

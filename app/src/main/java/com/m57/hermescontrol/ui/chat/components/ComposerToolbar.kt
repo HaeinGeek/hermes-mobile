@@ -30,8 +30,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.m57.hermescontrol.R
 
 /**
  * Bottom toolbar row for the chat composer.
@@ -71,7 +73,7 @@ fun ComposerToolbar(
         ) {
             Icon(
                 imageVector = Icons.Default.AttachFile,
-                contentDescription = "Attach file",
+                contentDescription = stringResource(R.string.chat_attach_file),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }

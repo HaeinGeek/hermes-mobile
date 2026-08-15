@@ -21,8 +21,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.m57.hermescontrol.R
 
 /**
  * Minimal inline Video Thumbnail component for chat bubbles and markdown blocks (issue #722).
@@ -57,7 +59,7 @@ fun InlineVideoPlayer(
             Box(contentAlignment = Alignment.Center) {
                 Icon(
                     imageVector = Icons.Filled.PlayArrow,
-                    contentDescription = "Play Video",
+                    contentDescription = stringResource(R.string.video_play),
                     tint = MaterialTheme.colorScheme.inverseOnSurface,
                     modifier = Modifier.size(36.dp),
                 )

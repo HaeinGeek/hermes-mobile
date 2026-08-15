@@ -30,11 +30,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.m57.hermescontrol.R
 import com.m57.hermescontrol.ui.chat.SubagentIndicator
 import com.m57.hermescontrol.ui.chat.TodoItem
 
@@ -78,7 +80,7 @@ fun SubagentInspectionSheet(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "Task & Plan Inspection",
+                        text = stringResource(R.string.subagent_task_plan_inspection),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                     )
@@ -96,7 +98,7 @@ fun SubagentInspectionSheet(
 
             if (indicators.isEmpty() && todos.isEmpty()) {
                 Text(
-                    text = "No active tasks or plan items.",
+                    text = stringResource(R.string.subagent_no_active),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(vertical = 16.dp),
@@ -120,7 +122,7 @@ fun SubagentInspectionSheet(
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
-                                    text = "AGENT PLAN",
+                                    text = stringResource(R.string.subagent_agent_plan),
                                     style = MaterialTheme.typography.labelMedium,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.primary,
@@ -242,7 +244,7 @@ private fun InspectionItemCard(indicator: SubagentIndicator) {
             if (!indicator.summary.isNullOrBlank()) {
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "Summary: ${indicator.summary}",
+                    text = stringResource(R.string.subagent_summary, indicator.summary),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -260,7 +262,7 @@ private fun InspectionItemCard(indicator: SubagentIndicator) {
                     verticalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
                     Text(
-                        text = "LIVE TRANSCRIPT",
+                        text = stringResource(R.string.subagent_live_transcript),
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.outline,

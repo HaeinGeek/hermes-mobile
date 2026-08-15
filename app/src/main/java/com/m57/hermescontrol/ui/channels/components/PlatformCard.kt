@@ -226,7 +226,7 @@ internal fun PlatformCard(
                     } else {
                         Icon(
                             imageVector = Icons.Filled.Delete,
-                            contentDescription = "Remove platform",
+                            contentDescription = stringResource(R.string.platform_remove_desc),
                             tint = MaterialTheme.colorScheme.error,
                         )
                     }
@@ -246,7 +246,7 @@ internal fun PlatformCard(
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "Set up with QR",
+                        text = stringResource(R.string.platform_setup_qr),
                         style = MaterialTheme.typography.labelSmall,
                     )
                 }
@@ -267,8 +267,8 @@ internal fun PlatformCard(
     if (showRemoveConfirm) {
         AlertDialog(
             onDismissRequest = { showRemoveConfirm = false },
-            title = { Text("Remove ${platform.name}?") },
-            text = { Text("This will permanently remove this platform's configuration.") },
+            title = { Text(stringResource(R.string.platform_remove_confirm_title, platform.name)) },
+            text = { Text(stringResource(R.string.platform_remove_confirm_text)) },
             confirmButton = {
                 TextButton(
                     onClick = {

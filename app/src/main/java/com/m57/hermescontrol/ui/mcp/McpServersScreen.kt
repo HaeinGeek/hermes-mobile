@@ -154,7 +154,7 @@ fun McpServersScreen(
                         SearchBar(
                             query = query,
                             onQueryChange = { query = it },
-                            placeholder = "Search MCP servers...",
+                            placeholder = stringResource(R.string.mcp_search_placeholder),
                         )
                     }
 
@@ -171,7 +171,7 @@ fun McpServersScreen(
                     } else if (filteredServers.isEmpty()) {
                         item(key = "no-match") {
                             Text(
-                                text = "No servers match \"$query\"",
+                                text = stringResource(R.string.mcp_no_match, query),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.padding(spacing.md),

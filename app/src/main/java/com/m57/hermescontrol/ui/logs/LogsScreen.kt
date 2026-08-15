@@ -211,7 +211,7 @@ fun LogsScreen(
                             SearchBar(
                                 query = query,
                                 onQueryChange = { query = it },
-                                placeholder = "Search logs...",
+                                placeholder = stringResource(R.string.logs_search_placeholder),
                                 modifier = Modifier.padding(bottom = spacing.xs),
                             )
                         }
@@ -330,7 +330,7 @@ private fun shareLogs(
 ) {
     // Also copy to clipboard
     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
-    clipboard?.setPrimaryClip(ClipData.newPlainText("Hermes Logs", text))
+    clipboard?.setPrimaryClip(ClipData.newPlainText(context.getString(R.string.logs_clipboard_label), text))
 
     val sendIntent =
         Intent().apply {

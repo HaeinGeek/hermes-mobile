@@ -303,7 +303,7 @@ private fun IdentityStep(
             value = description,
             onValueChange = onDescriptionChange,
             label = { Text(stringResource(R.string.profiles_builder_label_description)) },
-            placeholder = { Text("Describe the purpose of this profile") },
+            placeholder = { Text(stringResource(R.string.profile_builder_placeholder)) },
             modifier = Modifier.fillMaxWidth(),
             maxLines = 4,
         )
@@ -470,17 +470,17 @@ private fun McpStep(
                                     fontWeight = FontWeight.Bold,
                                 )
                                 Text(
-                                    text = "Transport: ${server.transport.uppercase()}",
+                                    text = stringResource(R.string.profile_transport, server.transport.uppercase()),
                                     style = MaterialTheme.typography.bodySmall,
                                 )
                                 if (server.transport == "sse") {
                                     Text(
-                                        text = "URL: ${server.url}",
+                                        text = "URL：${server.url}",
                                         style = MaterialTheme.typography.labelSmall,
                                     )
                                 } else {
                                     Text(
-                                        text = "Command: ${server.command}",
+                                        text = stringResource(R.string.profile_command, server.command ?: ""),
                                         style = MaterialTheme.typography.labelSmall,
                                     )
                                 }
@@ -490,7 +490,7 @@ private fun McpStep(
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Delete,
-                                    contentDescription = "Remove Server",
+                                    contentDescription = stringResource(R.string.profile_remove_server),
                                 )
                             }
                         }

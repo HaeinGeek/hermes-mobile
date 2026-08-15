@@ -34,8 +34,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.m57.hermescontrol.R
 import com.m57.hermescontrol.data.model.MoaConfigPreset
 import com.m57.hermescontrol.data.model.MoaModelSlot
 import com.m57.hermescontrol.ui.common.SearchBar
@@ -58,7 +60,7 @@ internal fun MoaConfigDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Mixture of Agents") },
+        title = { Text(stringResource(R.string.moa_title)) },
         text = {
             if (pickerTarget != null && effectivePreset != null) {
                 // Inline model picker within the dialog
@@ -228,13 +230,13 @@ private fun MoaConfigEditor(
 ) {
     Column {
         Text(
-            text = "Presets appear as models under the Mixture of Agents provider.",
+            text = stringResource(R.string.moa_presets_note),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
 
         if (effectivePreset == null) {
-            Text("No presets configured", style = MaterialTheme.typography.bodyMedium)
+            Text(stringResource(R.string.moa_no_presets), style = MaterialTheme.typography.bodyMedium)
             return
         }
 
@@ -248,7 +250,7 @@ private fun MoaConfigEditor(
         ) {
             // Simplified preset dropdown with buttons
             if (presetNames.isNotEmpty()) {
-                Text("Preset:", style = MaterialTheme.typography.bodySmall)
+                Text(stringResource(R.string.moa_preset_label), style = MaterialTheme.typography.bodySmall)
                 presetNames.forEach { name ->
                     TextButton(
                         onClick = { onSelectPreset(name) },
@@ -286,7 +288,7 @@ private fun MoaConfigEditor(
                 contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
                 enabled = presetNames.size > 1,
             ) {
-                Text("Set default", style = MaterialTheme.typography.labelSmall)
+                Text(stringResource(R.string.moa_set_default), style = MaterialTheme.typography.labelSmall)
             }
             OutlinedButton(
                 onClick = onDeletePreset,
@@ -306,13 +308,18 @@ private fun MoaConfigEditor(
             OutlinedTextField(
                 value = newPresetName,
                 onValueChange = onNewPresetNameChange,
-                placeholder = { Text("new preset name", style = MaterialTheme.typography.bodySmall) },
+                placeholder = {
+                    Text(
+                        stringResource(R.string.moa_new_preset_name),
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                },
                 singleLine = true,
                 modifier = Modifier.weight(1f).height(48.dp),
                 textStyle = MaterialTheme.typography.bodySmall,
             )
             IconButton(onClick = onAddPreset, enabled = newPresetName.isNotBlank()) {
-                Icon(Icons.Outlined.Add, contentDescription = "Add preset")
+                Icon(Icons.Outlined.Add, contentDescription = stringResource(R.string.moa_add_preset))
             }
         }
 
@@ -320,7 +327,7 @@ private fun MoaConfigEditor(
 
         // Reference models
         Text(
-            text = "Reference models",
+            text = stringResource(R.string.moa_reference_models),
             style = MaterialTheme.typography.bodySmall,
             fontWeight = FontWeight.Bold,
         )
@@ -355,7 +362,7 @@ private fun MoaConfigEditor(
         ) {
             Icon(Icons.Outlined.Add, contentDescription = null, modifier = Modifier.size(14.dp))
             Spacer(modifier = Modifier.width(4.dp))
-            Text("Add reference model", style = MaterialTheme.typography.labelSmall)
+            Text(stringResource(R.string.moa_add_reference), style = MaterialTheme.typography.labelSmall)
         }
 
         Spacer(modifier = Modifier.height(8.dp))
@@ -412,7 +419,7 @@ private fun MoaSlotPicker(
         SearchBar(
             query = pickerQuery,
             onQueryChange = { pickerQuery = it },
-            placeholder = "Search providers...",
+            placeholder = stringResource(R.string.moa_search_providers),
         )
         Spacer(modifier = Modifier.height(8.dp))
 
