@@ -3643,4 +3643,44 @@ class ChatViewModelTest {
                     .contains("missing.pdf"),
             )
         }
+
+    @Test
+    fun `openAttachment shows opening state while fetch is in flight and clears it after`() =
+        runTest {
+            mockkObject(GatewayFileClient)
+            val cacheDir =
+                java.io.File(
+                    System.getProperty("java.io.tmpdir"),
+                    "gw_open_${System.nanoTime()}",
+                ).apply { mkdirs() }
+            every { app.cacheDir } returns cacheDir
+            every { app.applicationContext } returns app
+            every { app.getApplicationContext() } returns app
+            val firstResult = CompletableDeferred<GatewayFileResult>()
+            val fetchedPaths = mutableListOf<String>()
+            coEvery { GatewayFileClient.fetch(capture(fetchedPaths), any()) } coAnswers { firstResult.await() }
+
+            val vm = createViewModel()
+            val attachment =
+                Attachment(
+                    uri = "gateway:/tmp/big.pdf",
+                    name = "big.pdf",
+                    mimeType = "application/pdf",
+                    source = AttachmentSource.GATEWAY,
+                )
+
+            vm.openAttachment(attachment)
+            runCurrent()
+
+            // Indicator visible while the download is in flight…
+            assertEquals(listOf("/tmp/big.pdf"), fetchedPaths)
+            assertEquals("/tmp/big.pdf", vm.uiState.value.openingAttachmentPath)
+
+            firstResult.complete(GatewayFileResult.NotFound)
+            advanceUntilIdle()
+
+            // …and cleared in all outcomes.
+            assertNull(vm.uiState.value.openingAttachmentPath)
+            assertTrue(vm.uiState.value.openError.orEmpty().contains("big.pdf"))
+        }
 }
