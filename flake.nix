@@ -21,18 +21,21 @@
           };
         };
 
-        buildToolsVersion = "36.0.0";
+        buildToolsVersion = "37.0.0";
         androidSdk =
           (pkgs.androidenv.composeAndroidPackages {
-            # Command-line & platform tools
-            cmdLineToolsVersion = "11.0";
-            platformToolsVersion = "36.0.0";
+            # Toolchain pinned to the latest available on nixos-unstable (rev ffb3c9b7)
+            cmdLineToolsVersion = "22.0";
+            platformToolsVersion = "37.0.1";
 
             # Build tools
             buildToolsVersions = [buildToolsVersion];
 
-            # Target platforms (36 required by AGP 9.0.1 / compileSdk 36)
-            platformVersions = ["36"];
+            # Target platforms: 37.0 provides both the SDK platform for
+            # compileSdk 37 AND the published android-37.0 system image the
+            # emulator needs to boot an AVD (no 37.1 image exists yet).
+            # compileSdk/targetSdk in app/build.gradle.kts stay 37.
+            platformVersions = ["37.0"];
 
             # Emulator + system images for local AVD testing
             includeEmulator = true;

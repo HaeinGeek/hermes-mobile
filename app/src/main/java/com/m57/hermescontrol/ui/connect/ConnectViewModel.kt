@@ -1,6 +1,10 @@
 package com.m57.hermescontrol.ui.connect
 
 import android.app.Application
+import android.content.Context
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -15,6 +19,7 @@ import com.m57.hermescontrol.data.remote.CleartextPolicy
 import com.m57.hermescontrol.data.remote.NetworkError
 import com.m57.hermescontrol.data.remote.NetworkResult
 import com.m57.hermescontrol.data.remote.ServerEndpoint
+import com.m57.hermescontrol.data.remote.requiresLocalNetworkPermission
 import com.m57.hermescontrol.data.remote.safeApiCall
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -29,6 +34,7 @@ data class ConnectUiState(
     val isConnecting: Boolean = false,
     val connectionSuccess: Boolean = false,
     val errorMessage: String? = null,
+    val lanPermissionNeeded: Boolean = false,
     val profileName: String = "",
     val saveProfile: Boolean = false,
     val profiles: List<ConnectionProfile> = emptyList(),
@@ -40,6 +46,15 @@ data class ConnectUiState(
 class ConnectViewModel(
     private val app: Application,
 ) : ViewModel() {
+    /**
+     * Source of the device's API level. Defaults to the real [Build.VERSION.SDK_INT]
+     * but is package-visible so unit tests can exercise the Android 17 (API 37)
+     * local-network gate without mocking the final static [Build.VERSION.SDK_INT]
+     * field (which MockK cannot intercept in plain JVM tests).
+     */
+    @Suppress("MemberVisibilityCanBePrivate")
+    internal var sdkVersion: Int = Build.VERSION.SDK_INT
+
     private val _uiState = MutableStateFlow(ConnectUiState())
     val uiState: StateFlow<ConnectUiState> = _uiState.asStateFlow()
 
@@ -141,6 +156,43 @@ class ConnectViewModel(
                 ServerEndpoint.parse(trimmed, CleartextPolicy.ALLOW_WITH_WARNING).securityWarning
             }.getOrNull()
         _uiState.update { it.copy(baseUrl = trimmed, transportWarning = warning, errorMessage = null) }
+    }
+
+    /**
+     * Entry point for the connect button. On Android 17 (API 37) a LAN gateway
+     * host requires the `ACCESS_LOCAL_NETWORK` runtime permission. If it's
+     * needed and not yet granted, we surface [ConnectUiState.lanPermissionNeeded]
+     * so the screen can launch the system prompt instead of dialing out. Loopback
+     * (127.0.0.1) and public remote hosts skip this entirely.
+     */
+    fun requestConnect(context: Context) {
+        val baseUrl = _uiState.value.baseUrl
+        val needsPermission =
+            requiresLocalNetworkPermission(sdkVersion, baseUrl) &&
+                ContextCompat.checkSelfPermission(
+                    context,
+                    android.Manifest.permission.ACCESS_LOCAL_NETWORK,
+                ) != PackageManager.PERMISSION_GRANTED
+        if (needsPermission) {
+            _uiState.update { it.copy(lanPermissionNeeded = true, errorMessage = null) }
+            return
+        }
+        connect()
+    }
+
+    /** Called by the screen after the user responds to the local-network prompt. */
+    fun onLanPermissionResult(granted: Boolean) {
+        if (granted) {
+            _uiState.update { it.copy(lanPermissionNeeded = false) }
+            connect()
+        } else {
+            _uiState.update {
+                it.copy(
+                    lanPermissionNeeded = false,
+                    errorMessage = app.getString(R.string.connect_error_lan_permission_denied),
+                )
+            }
+        }
     }
 
     fun connect() {

@@ -14,11 +14,12 @@ android {
     lint {
         disable += "MissingTranslation"
     }
-    compileSdk = 36
+    compileSdk = 37
+    buildToolsVersion = "37.0.0"
     defaultConfig {
         applicationId = "com.m57.hermescontrol"
         minSdk = 26
-        targetSdk = 36
+        targetSdk = 37
         // Version overrides passed from CI via -PversionName / -PversionCode
         // Falls back to defaults for local development.
         versionCode = (project.findProperty("versionCode") as? String)?.toIntOrNull() ?: 1
