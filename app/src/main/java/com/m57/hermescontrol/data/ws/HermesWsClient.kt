@@ -79,6 +79,15 @@ object HermesWsClient {
     private const val MAX_OUTBOUND_MESSAGE_BYTES = 16 * 1024 * 1024
     private const val OUTBOUND_DRAIN_TIMEOUT_MS = 60_000L
 
+    /**
+     * No inbound frame for this long means the link is dead even though the
+     * TCP session may still look open (silent NAT/VPN drop). OkHttp pings
+     * every 30s (OkHttpProvider.websocket) and any inbound frame refreshes
+     * [lastPongTimestamp], so a healthy link never exceeds ~30s of silence.
+     * 90s tolerates exactly one missed ping cycle before acting.
+     */
+    private const val STALE_THRESHOLD_MS = 90_000L
+
     // ── Internal state (all access through synchronized / atomic) ────────
 
     private val requestId = AtomicInteger(0)
@@ -135,11 +144,39 @@ object HermesWsClient {
             wsScope.launch {
                 while (connected.get()) {
                     delay(30_000L)
-                    if (connected.get() && System.currentTimeMillis() - lastPongTimestamp > 60_000L) {
-                        Log.w(TAG, "WebSocket connection appears unhealthy (no frames received for > 60s)")
-                    }
+                    if (!runHealthCheckPass()) break
                 }
             }
+    }
+
+    /**
+     * One liveness pass. Returns false when the tracking loop should stop:
+     * either the connection is already gone or the watchdog fired a cancel.
+     *
+     * Cancelling (not close()) forces an immediate onFailure, which rides the
+     * existing teardown path: generation bump, RECONNECTING, scheduleReconnect.
+     */
+    private fun runHealthCheckPass(): Boolean {
+        if (!connected.get()) return false
+        val staleMs = System.currentTimeMillis() - lastPongTimestamp
+        if (staleMs <= STALE_THRESHOLD_MS) return true
+        Log.w(TAG, "WebSocket stale (${staleMs / 1000}s without frames) — cancelling to trigger reconnect")
+        synchronized(outboundLock) {
+            if (!connected.get()) return false
+            webSocket?.cancel()
+        }
+        return false
+    }
+
+    /**
+     * Test hook: backdate liveness past the staleness threshold and force one
+     * synchronous watchdog pass, so reconnect tests are deterministic instead
+     * of racing the real 30s/90s cadence.
+     */
+    @VisibleForTesting
+    internal fun forceHealthCheckForTest(staleMillis: Long) {
+        lastPongTimestamp = System.currentTimeMillis() - staleMillis
+        runHealthCheckPass()
     }
 
     private fun stopHealthTracking() {
@@ -462,12 +499,18 @@ object HermesWsClient {
                 }
 
             if (code in 200..299) {
-                val ticketMatch = Regex("""\"ticket\":\"([^\"]+)\"""").find(body)
-                val ticket = ticketMatch?.groupValues?.getOrNull(1)
+                // Real JSON decode — the ticket is base64url and may contain
+                // characters a naive [^"]+ regex cannot extract (see
+                // testGatedMode_parsesEscapedTicketFromRealJsonShape).
+                val parsed =
+                    runCatching {
+                        OkHttpProvider.json.decodeFromString<WsTicketResponse>(body)
+                    }.getOrNull()
+                val ticket = parsed?.ticket
                 if (!ticket.isNullOrBlank()) {
                     return TicketRequestResult(ticket, null)
                 }
-                Log.w(TAG, "WS ticket mint failed: response body did not contain ticket")
+                Log.w(TAG, "WS ticket mint failed: unparseable ticket response")
             } else {
                 Log.w(TAG, "WS ticket mint failed: HTTP $code")
                 return TicketRequestResult(null, code)
@@ -926,10 +969,10 @@ object HermesWsClient {
 
                 else -> Unit
             }
-            val emitted = parsedEvents.tryEmit(event)
-            if (!emitted && BuildConfig.DEBUG) {
-                Log.w(TAG, "WebSocket message dropped due to buffer overflow")
-            }
+            // tryEmit on a DROP_OLDEST flow only returns false when the
+            // buffer is full AND no subscriber is draining; with extraBuffer=512
+            // and always-on init collectors this is unreachable in practice.
+            parsedEvents.tryEmit(event)
         }
 
         override fun onClosing(
