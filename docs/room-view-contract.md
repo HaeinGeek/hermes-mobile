@@ -43,7 +43,7 @@ holds and nothing more.
       "members": [{"name": "brokk", "handle": "brokk", "connectionId": "?",
                     "connectionKind": "?", "connectionLabel": "?", "sourceScoped": true}],
       "log": [{"id": "?",
-               "from": {"kind": "user|member|system", "name": "loki", "source": "?"},
+               "from": {"kind": "user|member", "name": "loki", "source": "?"},
                "text": "...", "at": 1787731411061, "thread": "?"}],
       "image": "?"
     }
@@ -53,6 +53,9 @@ holds and nothing more.
 ```
 
 - `?` = optional; ignore unknown fields.
+- `from.kind` is `user|member`: the Desktop projection collapses every non-`member`
+  kind to `user`, so `system` and other values never reach the mirror. The parser
+  still defends the branch defensively (any value ≠ `member` renders as user bubble).
 - Log entries are **nested** (`from.kind` / `from.name` / optional `from.source`),
   never flat `{kind, name}` as rev 1 showed.
 - The snapshot has **no** `needsYou`. That flag is a Desktop-local atom and never
@@ -90,10 +93,16 @@ holds and nothing more.
   - `name:` tombstone ⇒ delete only when tombstone revision ≥ cached room revision;
   - an unmet (stale) `name:` tombstone is discarded after evaluation — it is not
     retried on every poll.
-- Tombstone-triggered deletion also deletes the room's local read watermark.
-- Cached-missing rooms accumulate `lastSeenInMirrorAt`; above 20 retained rooms the
-  oldest are evicted (their read watermarks with them). Eviction is silent — no UI
-  state change beyond returning to the normal cached/missing display.
+- Tombstone-triggered deletion also deletes the room's local read watermark —
+  **the only path that ever deletes a watermark.** Payload eviction never touches it.
+- Cached-missing rooms accumulate `lastSeenInMirrorAt`; above 20 retained room
+  payloads the oldest (by `lastSeenInMirrorAt`) are evicted. Eviction removes the
+  room body only — the read watermark stays, so a capped-out room that returns does
+  not resurface old mentions as unread.
+- Read watermarks are separate records of `(roomKey, lastOpenedAt, lastSeenInMirrorAt)`
+  and outlive their room payloads; they are bounded at **200**, evicting the record
+  with the smallest `max(lastOpenedAt, lastSeenInMirrorAt)` first — a recently
+  evicted-from-mirror room must not be mistaken for a long-unread one.
 - Cache and read-state are scoped by `(connection profile ID, room identity)` and
   never mixed across servers/profiles.
 
@@ -117,9 +126,9 @@ entry.from.kind == "member"
   are meaningless. If `lastOpenedAt < log[0].at` (normalized), show a
   "older history exists outside the mirror" gap marker.
 - Opening a room updates its `lastOpenedAt` and clears the badge.
-- Eviction-return: because eviction keeps the room's read watermark (see Cache),
-  a room that returns after being capped out does **not** resurface old mentions
-  as unread.
+- Eviction-return: payload eviction keeps the room's read watermark (see Cache —
+  tombstone matching is the only watermark deletion path), so a room that returns
+  after being capped out does **not** resurface old mentions as unread.
 - This is not Desktop `$groupNeedsYou` parity: the approval-blocked trigger never
   reaches the mirror, and Desktop's own clear paths are local atoms.
 
