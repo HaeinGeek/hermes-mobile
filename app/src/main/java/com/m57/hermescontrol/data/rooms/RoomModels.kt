@@ -72,21 +72,37 @@ data class LogEntry(
 
 /** Defensive `at` coercion shared by parsing, sorting, and watermark comparison. */
 object AtNormalizer {
+    private val decimalNumber =
+        Regex("""^[+-]?(?:Infinity|(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)$""")
+    private val hexadecimalNumber = Regex("""^0[xX][0-9a-fA-F]+$""")
+    private val binaryNumber = Regex("""^0[bB][01]+$""")
+    private val octalNumber = Regex("""^0[oO][0-7]+$""")
+
     fun normalize(raw: JsonElement?): Long {
         val prim = raw as? kotlinx.serialization.json.JsonPrimitive ?: return 0L
-        // Mirrors oracle normAt: Number(entry.at || 0), then clamp NaN/negative to 0.
+        // Mirrors oracle normAt: Number(entry.at || 0), then clamps unusable Long values to 0.
         val value =
             when {
-                prim.isString ->
-                    when (prim.content) {
-                        "", "null", "true", "false" -> null // JS Number("") = 0 but these are not real timestamps
-                        else -> prim.content.toDoubleOrNull()
-                    }
+                prim.isString -> parseJavaScriptNumber(prim.content)
                 prim.booleanOrNull != null -> if (prim.booleanOrNull == true) 1.0 else null // Number(true)=1
                 else -> prim.content.toDoubleOrNull()
             } ?: return 0L
-        if (value.isNaN() || value < 0) return 0L
+        // Long.MAX_VALUE.toDouble() rounds up to 2^63; reject that boundary too,
+        // otherwise toLong() saturates and permanently poisons the read watermark.
+        if (!value.isFinite() || value < 0 || value >= Long.MAX_VALUE.toDouble()) return 0L
         return value.toLong()
+    }
+
+    private fun parseJavaScriptNumber(raw: String): Double? {
+        val value = raw.trim()
+        if (value.isEmpty()) return 0.0
+        return when {
+            hexadecimalNumber.matches(value) -> value.substring(2).toULongOrNull(16)?.toDouble()
+            binaryNumber.matches(value) -> value.substring(2).toULongOrNull(2)?.toDouble()
+            octalNumber.matches(value) -> value.substring(2).toULongOrNull(8)?.toDouble()
+            decimalNumber.matches(value) -> value.toDoubleOrNull()
+            else -> null
+        }
     }
 }
 

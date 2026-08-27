@@ -2,8 +2,10 @@ package com.m57.hermescontrol.data.rooms
 
 import com.m57.hermescontrol.data.ws.HermesWsClient
 import com.m57.hermescontrol.data.ws.WsMethods
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.serialization.SerializationException
 
 /** RPC boundary kept injectable so repository tests exercise the real request contract. */
 fun interface RoomsRpc {
@@ -49,6 +51,11 @@ sealed interface RoomsRefresh {
     data class Unavailable(
         override val state: RoomCacheOps.State,
     ) : RoomsRefresh
+
+    data class Error(
+        override val state: RoomCacheOps.State,
+        val message: String?,
+    ) : RoomsRefresh
 }
 
 /**
@@ -65,11 +72,14 @@ class RoomsRepository(
 
     suspend fun cached(connectionId: String): RoomCacheOps.State = store.load(connectionId)
 
-    /** Marks a room read and persists only the selected connection's watermark. */
+    /**
+     * Marks a room read through its newest mirrored entry. The watermark stays
+     * in the Desktop entry timestamp domain and is monotonically non-decreasing;
+     * 1L is the opened sentinel when every mirrored timestamp normalizes to 0.
+     */
     suspend fun markOpened(
         connectionId: String,
         roomKey: String,
-        openedAt: Long = nowMs(),
     ): RoomCacheOps.State =
         refreshMutex.withLock {
             val state = store.load(connectionId)
@@ -79,7 +89,7 @@ class RoomsRepository(
             val record =
                 RoomCacheOps.WatermarkRecord(
                     roomKey = roomKey,
-                    lastOpenedAt = maxOf(openedAt.coerceAtLeast(0L), newestEntryAt),
+                    lastOpenedAt = maxOf(existing?.lastOpenedAt ?: 0L, newestEntryAt, 1L),
                     lastSeenInMirrorAt = existing?.lastSeenInMirrorAt ?: nowMs(),
                 )
             val updated = state.copy(watermarks = state.watermarks + (roomKey to record))
@@ -90,18 +100,31 @@ class RoomsRepository(
     suspend fun refresh(connectionId: String): RoomsRefresh =
         refreshMutex.withLock {
             val previous = store.load(connectionId)
-            val result = rpc.request(WsProfilesList.METHOD, WsProfilesList.PARAMS)
-            val selection = ProfileSelection.selectResult(result)
-            if (selection !is ProfileSelection.Selection.Found) return@withLock RoomsRefresh.Unavailable(previous)
+            try {
+                val result = rpc.request(WsProfilesList.METHOD, WsProfilesList.PARAMS)
+                val selection = ProfileSelection.selectResult(result)
+                if (selection !is ProfileSelection.Selection.Found) {
+                    return@withLock RoomsRefresh.Unavailable(previous)
+                }
 
-            val snapshot = RoomMirrorParser.parse(selection.snapshot)
-            val merged = RoomCacheOps.merge(previous, snapshot, nowMs())
-            store.save(connectionId, merged.state)
-            RoomsRefresh.Available(
-                profileName = selection.profileName,
-                currentRoomKeys = merged.currentRoomKeys,
-                missingFromMirror = merged.missingFromMirror,
-                state = merged.state,
-            )
+                val snapshot =
+                    try {
+                        RoomMirrorParser.parse(selection.snapshot)
+                    } catch (_: SerializationException) {
+                        return@withLock RoomsRefresh.Unavailable(previous)
+                    }
+                val merged = RoomCacheOps.merge(previous, snapshot, nowMs())
+                store.save(connectionId, merged.state)
+                RoomsRefresh.Available(
+                    profileName = selection.profileName,
+                    currentRoomKeys = merged.currentRoomKeys,
+                    missingFromMirror = merged.missingFromMirror,
+                    state = merged.state,
+                )
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                RoomsRefresh.Error(previous, error.message)
+            }
         }
 }

@@ -175,6 +175,83 @@
         },
         {
           "_expect_at": 0,
+          "_case": "at overflows Double -> Number('1e400') is Infinity, clamp to 0",
+          "id": "ccccccc1-0000-4000-8000-000000000010",
+          "from": {
+            "kind": "member",
+            "name": "bot-one"
+          },
+          "text": "at overflows Double",
+          "at": "1e400"
+        },
+        {
+          "_expect_at": 0,
+          "_case": "at is finite but exceeds Kotlin Long storage -> mobile clamps to 0. NOTE: the Desktop-domain normAt KEEPS this value (it is a finite double); only normAtMobileLong rejects it. EXPECTED.json carries both columns, and _expect_at follows the MOBILE column.",
+          "id": "ccccccc1-0000-4000-8000-000000000011",
+          "from": {
+            "kind": "member",
+            "name": "bot-one"
+          },
+          "text": "at exceeds Long storage",
+          "at": "1.7976931348623157e308"
+        },
+        {
+          "_expect_at": 0,
+          "_case": "LONG BOUNDARY: 2^63 = 9223372036854775808 is the double nearest Long.MAX_VALUE and sits one ABOVE it. A guard written as '> Number(Long.MAX_VALUE)' compares against this same 2^63 and lets it through, where Kotlin Double.toLong() saturates to Long.MAX_VALUE -- permanently poisoning the monotonic read watermark. Correct cut is >= 2^63.",
+          "id": "ccccccc1-0000-4000-8000-000000000014",
+          "from": {
+            "kind": "member",
+            "name": "bot-one"
+          },
+          "text": "@user at is exactly 2^63",
+          "at": "9223372036854775808"
+        },
+        {
+          "_expect_at": 0,
+          "_case": "LONG BOUNDARY: Long.MAX_VALUE itself (9223372036854775807) is NOT representable as a double -- it rounds UP to 2^63, so it must be rejected too. This is the probe that fails against a '>' guard.",
+          "id": "ccccccc1-0000-4000-8000-000000000015",
+          "from": {
+            "kind": "member",
+            "name": "bot-one"
+          },
+          "text": "at is Long.MAX_VALUE as a string",
+          "at": "9223372036854775807"
+        },
+        {
+          "_expect_at": "9223372036854774784",
+          "_case": "LONG BOUNDARY: 9223372036854774784 is the LARGEST double below 2^63 and is exactly representable as a Long. It must pass through unchanged -- a guard that over-rejects would zero a legitimate timestamp. No double exists between this value and 2^63.",
+          "id": "ccccccc1-0000-4000-8000-000000000016",
+          "from": {
+            "kind": "member",
+            "name": "bot-one"
+          },
+          "text": "at is the largest representable Long-storable double",
+          "at": "9223372036854774784"
+        },
+        {
+          "_expect_at": 16,
+          "_case": "hex numeric string follows JavaScript Number('0x10') -> 16",
+          "id": "ccccccc1-0000-4000-8000-000000000012",
+          "from": {
+            "kind": "member",
+            "name": "bot-one"
+          },
+          "text": "at is hexadecimal",
+          "at": "0x10"
+        },
+        {
+          "_expect_at": 0,
+          "_case": "Java suffix is not JavaScript numeric grammar -> Number('1d') is NaN",
+          "id": "ccccccc1-0000-4000-8000-000000000013",
+          "from": {
+            "kind": "member",
+            "name": "bot-one"
+          },
+          "text": "at has a Java-only suffix",
+          "at": "1d"
+        },
+        {
+          "_expect_at": 0,
           "_case": "text missing -> empty string, no crash, no mention",
           "id": "ccccccc1-0000-4000-8000-00000000000f",
           "from": {

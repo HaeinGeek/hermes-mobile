@@ -45,19 +45,21 @@ object RoomMirrorParser {
         val legacy = declaredVersion < 3
         val roomsBuilder = LinkedHashMap<String, Pair<String, Room>>()
         envelope.rooms.forEach { (key, element) ->
+            val roomObject = element as? JsonObject ?: return@forEach
+            if (roomObject["log"] !is JsonArray) return@forEach
             val room =
-                runCatching { json.decodeFromJsonElement(Room.serializer(), element) }
-                    .getOrDefault(Room())
+                runCatching { json.decodeFromJsonElement(Room.serializer(), roomObject) }
+                    .getOrNull() ?: return@forEach
             val sourceKey = if (legacy) "name:$key" else key
             val normalizedKey = if (legacy) sourceKey else roomIdentity(sourceKey, room)
-            val displayName = room.name ?: if (legacy) key else sourceKey.removePrefix("name:")
+            val displayName = if (legacy) key else room.name ?: sourceKey.removePrefix("name:")
             roomsBuilder[normalizedKey] = sourceKey to room.copy(name = displayName)
         }
         val deleted =
             envelope.deleted
                 .mapKeys { (key, _) -> if (legacy) "name:$key" else key } // desktop lifts legacy tombstone keys too
                 .mapValues { (_, rev) ->
-                    if (declaredVersion < 2) 0L else rev // v1 wall-clock ms -> clamp to 0 (plugin.js L388)
+                    if (declaredVersion < 2) 0L else rev.coerceAtLeast(0L)
                 }
         return NormalizedSnapshot(declaredVersion, roomsBuilder.toMap(), deleted)
     }
@@ -82,6 +84,8 @@ data class NormalizedSnapshot(
  * - `id:` tombstone: unconditional delete.
  * - `name:` tombstone: delete only when tombstone rev >= cached room revision;
  *   an unmet stale tombstone is discarded after evaluation (not retried forever).
+ * - `name:` tombstone with no cached payload cannot be revision-matched, so its
+ *   independent watermark is preserved (and remains bounded by the 200-record cap).
  * Returns which cached keys were deleted and which tombstone keys to discard.
  */
 object Tombstones {
@@ -319,6 +323,12 @@ object RoomAnalysis {
         log.withIndex()
             .filter { (_, e) -> e.isMember && (e.text ?: "").contains(UnreadBadge.MENTION) && e.normalizedAt == 0L }
             .map { it.index }
+
+    /** SPEC gap marker: the read watermark predates the oldest mirrored entry. */
+    fun hasHistoryGap(
+        log: List<LogEntry>,
+        lastOpenedAt: Long,
+    ): Boolean = log.firstOrNull()?.let { lastOpenedAt < it.normalizedAt } ?: false
 
     fun sortEntriesByNormalizedAt(log: List<LogEntry>): List<Int> =
         log.indices.sortedWith(compareBy({ log[it].normalizedAt }, { it }))

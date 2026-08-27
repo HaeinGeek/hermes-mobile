@@ -4,6 +4,7 @@
     "declaredVersion": 3,
     "normalizedVersion": 3,
     "gatewayBytes": 1674,
+    "longStorageBoundary": "9223372036854775808",
     "roomKeysAfterNormalize": [
       "id:rmfixt001-aaaaa",
       "id:rmfixt002-bbbbb"
@@ -43,6 +44,11 @@
           1787737010000,
           1787737020000
         ],
+        "normalizedAtMobileLong": [
+          "1787737000000",
+          "1787737010000",
+          "1787737020000"
+        ],
         "newestAt": 1787737020000,
         "oldestAt": 1787737000000,
         "sortOrderByEntryKey": [
@@ -57,6 +63,29 @@
         "badgeOpenedBeforeWindow": true,
         "badgeOpenedAtNewest": false,
         "mentionsUnreachableWhenOpened": [],
+        "mobile": {
+          "normalizedAt": [
+            "1787737000000",
+            "1787737010000",
+            "1787737020000"
+          ],
+          "oldestAt": "1787737000000",
+          "newestAt": "1787737020000",
+          "displayOrder": [
+            0,
+            1,
+            2
+          ],
+          "mentionEntryIndexes": [
+            2
+          ],
+          "mentionsUnreachableWhenOpened": [],
+          "badgeNeverOpened": true,
+          "badgeOpenedBeforeWindow": true,
+          "badgeOpenedAtNewest": false,
+          "hasHistoryGapWhenNeverOpened": true,
+          "watermarkAfterOpen": "1787737020000"
+        },
         "memberKeys": [
           "[\"\",\"\",\"\",\"bot-one\",\"bot-one\"]",
           "[\"\",\"conn-remote-1\",\"lab-pod\",\"bot-two\",\"bot-two\"]"
@@ -72,6 +101,9 @@
         "normalizedAt": [
           1787736000000
         ],
+        "normalizedAtMobileLong": [
+          "1787736000000"
+        ],
         "newestAt": 1787736000000,
         "oldestAt": 1787736000000,
         "sortOrderByEntryKey": [
@@ -82,6 +114,23 @@
         "badgeOpenedBeforeWindow": false,
         "badgeOpenedAtNewest": false,
         "mentionsUnreachableWhenOpened": [],
+        "mobile": {
+          "normalizedAt": [
+            "1787736000000"
+          ],
+          "oldestAt": "1787736000000",
+          "newestAt": "1787736000000",
+          "displayOrder": [
+            0
+          ],
+          "mentionEntryIndexes": [],
+          "mentionsUnreachableWhenOpened": [],
+          "badgeNeverOpened": false,
+          "badgeOpenedBeforeWindow": false,
+          "badgeOpenedAtNewest": false,
+          "hasHistoryGapWhenNeverOpened": true,
+          "watermarkAfterOpen": "1787736000000"
+        },
         "memberKeys": [
           "[\"\",\"\",\"\",\"bot-three\",\"bot-three\"]"
         ]
@@ -93,6 +142,7 @@
     "declaredVersion": 3,
     "normalizedVersion": 3,
     "gatewayBytes": 1590,
+    "longStorageBoundary": "9223372036854775808",
     "roomKeysAfterNormalize": [
       "id:rmfixt010-hot01",
       "id:rmfixt011-warm1",
@@ -116,6 +166,9 @@
         "normalizedAt": [
           1787737090000
         ],
+        "normalizedAtMobileLong": [
+          "1787737090000"
+        ],
         "newestAt": 1787737090000,
         "oldestAt": 1787737090000,
         "sortOrderByEntryKey": [
@@ -126,6 +179,23 @@
         "badgeOpenedBeforeWindow": false,
         "badgeOpenedAtNewest": false,
         "mentionsUnreachableWhenOpened": [],
+        "mobile": {
+          "normalizedAt": [
+            "1787737090000"
+          ],
+          "oldestAt": "1787737090000",
+          "newestAt": "1787737090000",
+          "displayOrder": [
+            0
+          ],
+          "mentionEntryIndexes": [],
+          "mentionsUnreachableWhenOpened": [],
+          "badgeNeverOpened": false,
+          "badgeOpenedBeforeWindow": false,
+          "badgeOpenedAtNewest": false,
+          "hasHistoryGapWhenNeverOpened": true,
+          "watermarkAfterOpen": "1787737090000"
+        },
         "memberKeys": [
           "[\"\",\"\",\"\",\"bot-one\",\"bot-one\"]"
         ]
@@ -140,6 +210,9 @@
         "normalizedAt": [
           1787737050000
         ],
+        "normalizedAtMobileLong": [
+          "1787737050000"
+        ],
         "newestAt": 1787737050000,
         "oldestAt": 1787737050000,
         "sortOrderByEntryKey": [
@@ -152,6 +225,25 @@
         "badgeOpenedBeforeWindow": true,
         "badgeOpenedAtNewest": false,
         "mentionsUnreachableWhenOpened": [],
+        "mobile": {
+          "normalizedAt": [
+            "1787737050000"
+          ],
+          "oldestAt": "1787737050000",
+          "newestAt": "1787737050000",
+          "displayOrder": [
+            0
+          ],
+          "mentionEntryIndexes": [
+            0
+          ],
+          "mentionsUnreachableWhenOpened": [],
+          "badgeNeverOpened": true,
+          "badgeOpenedBeforeWindow": true,
+          "badgeOpenedAtNewest": false,
+          "hasHistoryGapWhenNeverOpened": true,
+          "watermarkAfterOpen": "1787737050000"
+        },
         "memberKeys": [
           "[\"\",\"\",\"\",\"bot-two\",\"bot-two\"]"
         ]
@@ -166,6 +258,9 @@
         "normalizedAt": [
           1787730000000
         ],
+        "normalizedAtMobileLong": [
+          "1787730000000"
+        ],
         "newestAt": 1787730000000,
         "oldestAt": 1787730000000,
         "sortOrderByEntryKey": [
@@ -178,6 +273,25 @@
         "badgeOpenedBeforeWindow": true,
         "badgeOpenedAtNewest": false,
         "mentionsUnreachableWhenOpened": [],
+        "mobile": {
+          "normalizedAt": [
+            "1787730000000"
+          ],
+          "oldestAt": "1787730000000",
+          "newestAt": "1787730000000",
+          "displayOrder": [
+            0
+          ],
+          "mentionEntryIndexes": [
+            0
+          ],
+          "mentionsUnreachableWhenOpened": [],
+          "badgeNeverOpened": true,
+          "badgeOpenedBeforeWindow": true,
+          "badgeOpenedAtNewest": false,
+          "hasHistoryGapWhenNeverOpened": true,
+          "watermarkAfterOpen": "1787730000000"
+        },
         "memberKeys": [
           "[\"\",\"\",\"\",\"bot-three\",\"bot-three\"]"
         ]
@@ -189,6 +303,7 @@
     "declaredVersion": 3,
     "normalizedVersion": 3,
     "gatewayBytes": 910,
+    "longStorageBoundary": "9223372036854775808",
     "roomKeysAfterNormalize": [
       "id:rmfixt010-hot01"
     ],
@@ -218,6 +333,10 @@
           1787737090000,
           1787737290000
         ],
+        "normalizedAtMobileLong": [
+          "1787737090000",
+          "1787737290000"
+        ],
         "newestAt": 1787737290000,
         "oldestAt": 1787737090000,
         "sortOrderByEntryKey": [
@@ -231,6 +350,27 @@
         "badgeOpenedBeforeWindow": true,
         "badgeOpenedAtNewest": false,
         "mentionsUnreachableWhenOpened": [],
+        "mobile": {
+          "normalizedAt": [
+            "1787737090000",
+            "1787737290000"
+          ],
+          "oldestAt": "1787737090000",
+          "newestAt": "1787737290000",
+          "displayOrder": [
+            0,
+            1
+          ],
+          "mentionEntryIndexes": [
+            1
+          ],
+          "mentionsUnreachableWhenOpened": [],
+          "badgeNeverOpened": true,
+          "badgeOpenedBeforeWindow": true,
+          "badgeOpenedAtNewest": false,
+          "hasHistoryGapWhenNeverOpened": true,
+          "watermarkAfterOpen": "1787737290000"
+        },
         "memberKeys": [
           "[\"\",\"\",\"\",\"bot-one\",\"bot-one\"]"
         ]
@@ -242,6 +382,7 @@
     "declaredVersion": 3,
     "normalizedVersion": 3,
     "gatewayBytes": 1745,
+    "longStorageBoundary": "9223372036854775808",
     "roomKeysAfterNormalize": [
       "id:rmfixt010-hot01",
       "id:rmfixt012-gamma"
@@ -273,6 +414,10 @@
           1787737290000,
           1787737590000
         ],
+        "normalizedAtMobileLong": [
+          "1787737290000",
+          "1787737590000"
+        ],
         "newestAt": 1787737590000,
         "oldestAt": 1787737290000,
         "sortOrderByEntryKey": [
@@ -286,6 +431,27 @@
         "badgeOpenedBeforeWindow": true,
         "badgeOpenedAtNewest": false,
         "mentionsUnreachableWhenOpened": [],
+        "mobile": {
+          "normalizedAt": [
+            "1787737290000",
+            "1787737590000"
+          ],
+          "oldestAt": "1787737290000",
+          "newestAt": "1787737590000",
+          "displayOrder": [
+            0,
+            1
+          ],
+          "mentionEntryIndexes": [
+            0
+          ],
+          "mentionsUnreachableWhenOpened": [],
+          "badgeNeverOpened": true,
+          "badgeOpenedBeforeWindow": true,
+          "badgeOpenedAtNewest": false,
+          "hasHistoryGapWhenNeverOpened": true,
+          "watermarkAfterOpen": "1787737590000"
+        },
         "memberKeys": [
           "[\"\",\"\",\"\",\"bot-one\",\"bot-one\"]"
         ]
@@ -300,6 +466,9 @@
         "normalizedAt": [
           1787730000000
         ],
+        "normalizedAtMobileLong": [
+          "1787730000000"
+        ],
         "newestAt": 1787730000000,
         "oldestAt": 1787730000000,
         "sortOrderByEntryKey": [
@@ -312,6 +481,25 @@
         "badgeOpenedBeforeWindow": true,
         "badgeOpenedAtNewest": false,
         "mentionsUnreachableWhenOpened": [],
+        "mobile": {
+          "normalizedAt": [
+            "1787730000000"
+          ],
+          "oldestAt": "1787730000000",
+          "newestAt": "1787730000000",
+          "displayOrder": [
+            0
+          ],
+          "mentionEntryIndexes": [
+            0
+          ],
+          "mentionsUnreachableWhenOpened": [],
+          "badgeNeverOpened": true,
+          "badgeOpenedBeforeWindow": true,
+          "badgeOpenedAtNewest": false,
+          "hasHistoryGapWhenNeverOpened": true,
+          "watermarkAfterOpen": "1787730000000"
+        },
         "memberKeys": [
           "[\"\",\"\",\"\",\"bot-three\",\"bot-three\"]"
         ]
@@ -323,6 +511,7 @@
     "declaredVersion": 3,
     "normalizedVersion": 3,
     "gatewayBytes": 1966,
+    "longStorageBoundary": "9223372036854775808",
     "roomKeysAfterNormalize": [
       "id:rmfixt020-mixed",
       "name:oldroom",
@@ -364,6 +553,10 @@
           1787737400000,
           1787737401000
         ],
+        "normalizedAtMobileLong": [
+          "1787737400000",
+          "1787737401000"
+        ],
         "newestAt": 1787737401000,
         "oldestAt": 1787737400000,
         "sortOrderByEntryKey": [
@@ -377,6 +570,27 @@
         "badgeOpenedBeforeWindow": true,
         "badgeOpenedAtNewest": false,
         "mentionsUnreachableWhenOpened": [],
+        "mobile": {
+          "normalizedAt": [
+            "1787737400000",
+            "1787737401000"
+          ],
+          "oldestAt": "1787737400000",
+          "newestAt": "1787737401000",
+          "displayOrder": [
+            0,
+            1
+          ],
+          "mentionEntryIndexes": [
+            1
+          ],
+          "mentionsUnreachableWhenOpened": [],
+          "badgeNeverOpened": true,
+          "badgeOpenedBeforeWindow": true,
+          "badgeOpenedAtNewest": false,
+          "hasHistoryGapWhenNeverOpened": true,
+          "watermarkAfterOpen": "1787737401000"
+        },
         "memberKeys": [
           "[\"\",\"\",\"\",\"bot-one\",\"bot-one\"]"
         ]
@@ -391,6 +605,9 @@
         "normalizedAt": [
           1787737402000
         ],
+        "normalizedAtMobileLong": [
+          "1787737402000"
+        ],
         "newestAt": 1787737402000,
         "oldestAt": 1787737402000,
         "sortOrderByEntryKey": [
@@ -401,6 +618,23 @@
         "badgeOpenedBeforeWindow": false,
         "badgeOpenedAtNewest": false,
         "mentionsUnreachableWhenOpened": [],
+        "mobile": {
+          "normalizedAt": [
+            "1787737402000"
+          ],
+          "oldestAt": "1787737402000",
+          "newestAt": "1787737402000",
+          "displayOrder": [
+            0
+          ],
+          "mentionEntryIndexes": [],
+          "mentionsUnreachableWhenOpened": [],
+          "badgeNeverOpened": false,
+          "badgeOpenedBeforeWindow": false,
+          "badgeOpenedAtNewest": false,
+          "hasHistoryGapWhenNeverOpened": true,
+          "watermarkAfterOpen": "1787737402000"
+        },
         "memberKeys": [
           "[\"\",\"\",\"\",\"bot-two\",\"bot-two\"]"
         ]
@@ -415,6 +649,9 @@
         "normalizedAt": [
           1787737403000
         ],
+        "normalizedAtMobileLong": [
+          "1787737403000"
+        ],
         "newestAt": 1787737403000,
         "oldestAt": 1787737403000,
         "sortOrderByEntryKey": [
@@ -425,6 +662,23 @@
         "badgeOpenedBeforeWindow": false,
         "badgeOpenedAtNewest": false,
         "mentionsUnreachableWhenOpened": [],
+        "mobile": {
+          "normalizedAt": [
+            "1787737403000"
+          ],
+          "oldestAt": "1787737403000",
+          "newestAt": "1787737403000",
+          "displayOrder": [
+            0
+          ],
+          "mentionEntryIndexes": [],
+          "mentionsUnreachableWhenOpened": [],
+          "badgeNeverOpened": false,
+          "badgeOpenedBeforeWindow": false,
+          "badgeOpenedAtNewest": false,
+          "hasHistoryGapWhenNeverOpened": true,
+          "watermarkAfterOpen": "1787737403000"
+        },
         "memberKeys": [
           "[\"\",\"\",\"\",\"bot-three\",\"bot-three\"]"
         ]
@@ -439,6 +693,9 @@
         "normalizedAt": [
           1787737404000
         ],
+        "normalizedAtMobileLong": [
+          "1787737404000"
+        ],
         "newestAt": 1787737404000,
         "oldestAt": 1787737404000,
         "sortOrderByEntryKey": [
@@ -449,6 +706,23 @@
         "badgeOpenedBeforeWindow": false,
         "badgeOpenedAtNewest": false,
         "mentionsUnreachableWhenOpened": [],
+        "mobile": {
+          "normalizedAt": [
+            "1787737404000"
+          ],
+          "oldestAt": "1787737404000",
+          "newestAt": "1787737404000",
+          "displayOrder": [
+            0
+          ],
+          "mentionEntryIndexes": [],
+          "mentionsUnreachableWhenOpened": [],
+          "badgeNeverOpened": false,
+          "badgeOpenedBeforeWindow": false,
+          "badgeOpenedAtNewest": false,
+          "hasHistoryGapWhenNeverOpened": true,
+          "watermarkAfterOpen": "1787737404000"
+        },
         "memberKeys": [
           "[\"\",\"\",\"\",\"bot-four\",\"bot-four\"]"
         ]
@@ -459,7 +733,8 @@
     "file": "at-normalization.json",
     "declaredVersion": 3,
     "normalizedVersion": 3,
-    "gatewayBytes": 5826,
+    "gatewayBytes": 8385,
+    "longStorageBoundary": "9223372036854775808",
     "roomKeysAfterNormalize": [
       "id:rmfixt030-atnorm"
     ],
@@ -473,7 +748,7 @@
         "displayName": "at-normalization",
         "revision": 1,
         "surviving": true,
-        "entries": 16,
+        "entries": 23,
         "members": 1,
         "entriesMissingId": 1,
         "normalizedAt": [
@@ -492,9 +767,41 @@
           1787737570000,
           1787737580000,
           1787737590000,
+          0,
+          1.7976931348623157e+308,
+          9223372036854776000,
+          9223372036854776000,
+          9223372036854775000,
+          16,
+          0,
           0
         ],
-        "newestAt": 1787737590000,
+        "normalizedAtMobileLong": [
+          "0",
+          "0",
+          "0",
+          "0",
+          "1787737510000",
+          "1",
+          "0",
+          "1787737520000",
+          "1787737530000",
+          "1787737540000",
+          "1787737550000",
+          "1787737560000",
+          "1787737570000",
+          "1787737580000",
+          "1787737590000",
+          "0",
+          "0",
+          "0",
+          "0",
+          "9223372036854774784",
+          "16",
+          "0",
+          "0"
+        ],
+        "newestAt": 1.7976931348623157e+308,
         "oldestAt": 0,
         "sortOrderByEntryKey": [
           "id:ccccccc1-0000-4000-8000-000000000001",
@@ -503,7 +810,10 @@
           "id:ccccccc1-0000-4000-8000-000000000004",
           "id:ccccccc1-0000-4000-8000-000000000007",
           "id:ccccccc1-0000-4000-8000-00000000000f",
+          "id:ccccccc1-0000-4000-8000-000000000010",
+          "id:ccccccc1-0000-4000-8000-000000000013",
           "id:ccccccc1-0000-4000-8000-000000000006",
+          "id:ccccccc1-0000-4000-8000-000000000012",
           "id:ccccccc1-0000-4000-8000-000000000005",
           "id:ccccccc1-0000-4000-8000-000000000008",
           "[1787737530000,\"member\",\"bot-one\",\"\",\"legacy\",",
@@ -512,13 +822,18 @@
           "id:ccccccc1-0000-4000-8000-00000000000b",
           "id:ccccccc1-0000-4000-8000-00000000000c",
           "id:ccccccc1-0000-4000-8000-00000000000d",
-          "id:ccccccc1-0000-4000-8000-00000000000e"
+          "id:ccccccc1-0000-4000-8000-00000000000e",
+          "id:ccccccc1-0000-4000-8000-000000000016",
+          "id:ccccccc1-0000-4000-8000-000000000014",
+          "id:ccccccc1-0000-4000-8000-000000000015",
+          "id:ccccccc1-0000-4000-8000-000000000011"
         ],
         "mentionEntryIndexes": [
           0,
           2,
           8,
-          13
+          13,
+          17
         ],
         "badgeNeverOpened": true,
         "badgeOpenedBeforeWindow": true,
@@ -527,6 +842,77 @@
           0,
           2
         ],
+        "mobile": {
+          "normalizedAt": [
+            "0",
+            "0",
+            "0",
+            "0",
+            "1787737510000",
+            "1",
+            "0",
+            "1787737520000",
+            "1787737530000",
+            "1787737540000",
+            "1787737550000",
+            "1787737560000",
+            "1787737570000",
+            "1787737580000",
+            "1787737590000",
+            "0",
+            "0",
+            "0",
+            "0",
+            "9223372036854774784",
+            "16",
+            "0",
+            "0"
+          ],
+          "oldestAt": "0",
+          "newestAt": "9223372036854774784",
+          "displayOrder": [
+            0,
+            1,
+            2,
+            3,
+            6,
+            15,
+            16,
+            17,
+            18,
+            21,
+            22,
+            5,
+            20,
+            4,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            19
+          ],
+          "mentionEntryIndexes": [
+            0,
+            2,
+            8,
+            13,
+            17
+          ],
+          "mentionsUnreachableWhenOpened": [
+            0,
+            2,
+            17
+          ],
+          "badgeNeverOpened": true,
+          "badgeOpenedBeforeWindow": true,
+          "badgeOpenedAtNewest": false,
+          "hasHistoryGapWhenNeverOpened": false,
+          "watermarkAfterOpen": "9223372036854774784"
+        },
         "memberKeys": [
           "[\"\",\"\",\"\",\"bot-one\",\"bot-one\"]"
         ]
@@ -538,6 +924,7 @@
     "declaredVersion": 2,
     "normalizedVersion": 3,
     "gatewayBytes": 1077,
+    "longStorageBoundary": "9223372036854775808",
     "roomKeysAfterNormalize": [
       "name:alpha-v2",
       "name:beta-v2"
@@ -569,6 +956,10 @@
           1787730000000,
           1787730001000
         ],
+        "normalizedAtMobileLong": [
+          "1787730000000",
+          "1787730001000"
+        ],
         "newestAt": 1787730001000,
         "oldestAt": 1787730000000,
         "sortOrderByEntryKey": [
@@ -582,6 +973,27 @@
         "badgeOpenedBeforeWindow": true,
         "badgeOpenedAtNewest": false,
         "mentionsUnreachableWhenOpened": [],
+        "mobile": {
+          "normalizedAt": [
+            "1787730000000",
+            "1787730001000"
+          ],
+          "oldestAt": "1787730000000",
+          "newestAt": "1787730001000",
+          "displayOrder": [
+            0,
+            1
+          ],
+          "mentionEntryIndexes": [
+            1
+          ],
+          "mentionsUnreachableWhenOpened": [],
+          "badgeNeverOpened": true,
+          "badgeOpenedBeforeWindow": true,
+          "badgeOpenedAtNewest": false,
+          "hasHistoryGapWhenNeverOpened": true,
+          "watermarkAfterOpen": "1787730001000"
+        },
         "memberKeys": [
           "[\"\",\"\",\"\",\"bot-one\",\"bot-one\"]"
         ]
@@ -596,6 +1008,9 @@
         "normalizedAt": [
           1787730002000
         ],
+        "normalizedAtMobileLong": [
+          "1787730002000"
+        ],
         "newestAt": 1787730002000,
         "oldestAt": 1787730002000,
         "sortOrderByEntryKey": [
@@ -606,6 +1021,23 @@
         "badgeOpenedBeforeWindow": false,
         "badgeOpenedAtNewest": false,
         "mentionsUnreachableWhenOpened": [],
+        "mobile": {
+          "normalizedAt": [
+            "1787730002000"
+          ],
+          "oldestAt": "1787730002000",
+          "newestAt": "1787730002000",
+          "displayOrder": [
+            0
+          ],
+          "mentionEntryIndexes": [],
+          "mentionsUnreachableWhenOpened": [],
+          "badgeNeverOpened": false,
+          "badgeOpenedBeforeWindow": false,
+          "badgeOpenedAtNewest": false,
+          "hasHistoryGapWhenNeverOpened": true,
+          "watermarkAfterOpen": "1787730002000"
+        },
         "memberKeys": []
       }
     }
@@ -615,6 +1047,7 @@
     "declaredVersion": 1,
     "normalizedVersion": 3,
     "gatewayBytes": 771,
+    "longStorageBoundary": "9223372036854775808",
     "roomKeysAfterNormalize": [
       "name:alpha-v1"
     ],
@@ -643,6 +1076,9 @@
         "normalizedAt": [
           1787720000000
         ],
+        "normalizedAtMobileLong": [
+          "1787720000000"
+        ],
         "newestAt": 1787720000000,
         "oldestAt": 1787720000000,
         "sortOrderByEntryKey": [
@@ -653,6 +1089,23 @@
         "badgeOpenedBeforeWindow": false,
         "badgeOpenedAtNewest": false,
         "mentionsUnreachableWhenOpened": [],
+        "mobile": {
+          "normalizedAt": [
+            "1787720000000"
+          ],
+          "oldestAt": "1787720000000",
+          "newestAt": "1787720000000",
+          "displayOrder": [
+            0
+          ],
+          "mentionEntryIndexes": [],
+          "mentionsUnreachableWhenOpened": [],
+          "badgeNeverOpened": false,
+          "badgeOpenedBeforeWindow": false,
+          "badgeOpenedAtNewest": false,
+          "hasHistoryGapWhenNeverOpened": true,
+          "watermarkAfterOpen": "1787720000000"
+        },
         "memberKeys": [
           "[\"\",\"\",\"\",\"bot-one\",\"bot-one\"]"
         ]

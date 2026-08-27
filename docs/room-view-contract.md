@@ -28,6 +28,10 @@ holds and nothing more.
   state instead of picking arbitrarily.
 - Polling: every 15 s while lifecycle ≥ STARTED, single request in flight at a
   time, plus pull-to-refresh.
+- An RPC failure returns an error state and leaves the connection-scoped cache
+  unchanged.
+- A selected-profile snapshot that cannot be decoded returns the unavailable
+  state and also leaves the connection-scoped cache unchanged.
 
 ## Mirror snapshot schema (v3, actual)
 
@@ -75,15 +79,24 @@ holds and nothing more.
 ## Normalization and identity
 
 - `version < 3`: name-keyed rooms are lifted to `name:<name>` per
-  `normalizeGroupChatSyncSnapshot`; v1 tombstones are wall-clock ms and are clamped
-  to revision 0 so they can never outrank a real revision and mass-delete the cache.
+  `normalizeGroupChatSyncSnapshot`, and the map key replaces any stale inner
+  `name`. v1 tombstones are wall-clock ms and clamp to revision 0 so they can
+  never outrank a real revision and mass-delete the cache; negative v2+ tombstone
+  revisions also clamp to 0 before comparison.
+- A room record is accepted only when it is an object whose `log` is an array;
+  missing, null, or non-array logs are dropped as malformed instead of becoming
+  phantom empty rooms.
 - Room identity: `id:<roomId>` when present, else original `name:` key.
 - `entry.at` normalization follows `Number(entry.at || 0)`: missing, null,
   non-numeric strings, and boolean `false` become `0`; boolean `true` becomes `1`.
   **Negative values clamp to `0`** — a deliberate divergence from Desktop, making
   `at >= 0` a single invariant for sorting and watermark comparison. Numeric
-  strings parse; floats truncate to Long; display order is normalized `at`, ties
-  broken by log array order.
+  strings use JavaScript `Number()` grammar (`"0x10"` → `16`, `"1d"` → `0`);
+  floats truncate to Long. Non-finite values and finite values outside Kotlin
+  Long storage clamp to `0` rather than saturating a read watermark. Display
+  order is normalized `at`, ties broken by log array order. This bound is a
+  prerequisite for the monotonic read-through rule in *Unread*: an outlier
+  promoted to the watermark could never be lowered.
 - `entry.id`, when present, is only an auxiliary dedup key — never the primary
   identity or watermark basis.
 
@@ -130,7 +143,15 @@ entry.from.kind == "member"
 - No unread **count**: the mirror window can be shorter than one hour, so counts
   are meaningless. If `lastOpenedAt < log[0].at` (normalized), show a
   "older history exists outside the mirror" gap marker.
-- Opening a room updates its `lastOpenedAt` and clears the badge.
+- `lastOpenedAt` is a monotonically non-decreasing read-through watermark over
+  observed mirrored `entry.at` values, not the phone wall-clock open time.
+- Opening a room sets `lastOpenedAt = max(previousLastOpenedAt, newest normalized
+  mirrored entry.at, 1L)`. `1L` is the opened sentinel when every mirrored
+  timestamp normalizes to `0`; this clears both unread and gap indicators without
+  mixing phone time into the comparison.
+- The non-finite/out-of-Long normalization guard above is required here: once an
+  outlier enters this monotonic watermark it cannot be lowered, so such values
+  must normalize to `0`.
 - Eviction-return: payload eviction keeps the room's read watermark (see Cache —
   tombstone matching is the only watermark deletion path), so a room that returns
   after being capped out does **not** resurface old mentions as unread.
@@ -177,9 +198,11 @@ prerequisite (parser/watcher stay deferred backlog).
    `legacy-v2.json` — asserted against `EXPECTED.json` and
    `EXPECTED-cache-walk.json` (Desktop-derived oracle). Gateway-size provenance is
    a separate generated evidence artifact, not a parser fixture.
-3. v3 nested `from`, all optional fields, `revision`, and mixed tombstones parse
-   without crashing; malformed `at` normalizes deterministically (missing, null,
-   non-numeric, boolean `false`, and negative → `0L`; boolean `true` → `1L`).
+3. v3 nested `from`, optional entry/member fields, `revision`, and mixed tombstones
+   parse without crashing; malformed room objects without an array `log` are
+   dropped. Malformed `at` normalizes deterministically (missing, null,
+   non-numeric, boolean `false`, negative, non-finite, and out-of-Long → `0L`;
+   boolean `true` → `1L`; JavaScript numeric strings such as `"0x10"` parse).
 4. Snapshot-absent rooms survive in cache; only matching tombstones delete them;
    stale tombstones are dropped.
 5. Only member `@user` mentions badge; user/system entries, pre-window entries, and

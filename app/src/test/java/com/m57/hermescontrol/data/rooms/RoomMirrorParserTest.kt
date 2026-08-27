@@ -41,8 +41,9 @@ class RoomMirrorParserTest {
         val snapshot = RoomMirrorParser.parse(raw)
         val room = snapshot.rooms.values.first().second
         val exp = expectedFor("at-normalization")
+        val expMobile = exp["rooms"]!!.jsonObject.values.first().jsonObject["mobile"]!!.jsonObject
         val normalizedAtExp =
-            exp["rooms"]!!.jsonObject.values.first().jsonObject["normalizedAt"]!!.jsonArray
+            expMobile["normalizedAt"]!!.jsonArray
                 .map { (it as JsonPrimitive).content.toLong() }
         assertEquals(normalizedAtExp, room.log.map { it.normalizedAt })
     }
@@ -65,6 +66,34 @@ class RoomMirrorParserTest {
     }
 
     @Test
+    fun `at normalization follows JavaScript numeric string grammar`() {
+        val values = listOf(JsonPrimitive("0x10"), JsonPrimitive("1d"))
+
+        assertEquals(listOf(16L, 0L), values.map(AtNormalizer::normalize))
+    }
+
+    @Test
+    fun `at normalization rejects non-finite and out-of-long-range values`() {
+        val cases =
+            listOf(
+                JsonPrimitive("Infinity"),
+                JsonPrimitive("1e400"),
+                JsonPrimitive(Double.MAX_VALUE),
+            )
+
+        assertEquals(listOf(0L, 0L, 0L), cases.map(AtNormalizer::normalize))
+    }
+
+    @Test
+    fun `at normalization uses the oracle Long storage boundary`() {
+        val oracleBoundary = (expectedFor("at-normalization")["longStorageBoundary"] as JsonPrimitive).content
+        val guardBoundary = java.math.BigDecimal(Long.MAX_VALUE.toDouble()).toBigInteger().toString()
+
+        assertEquals(oracleBoundary, guardBoundary)
+        assertEquals(0L, AtNormalizer.normalize(JsonPrimitive(oracleBoundary)))
+    }
+
+    @Test
     fun `display order is normalized at with array-order tiebreak`() {
         val log =
             listOf(
@@ -83,9 +112,30 @@ class RoomMirrorParserTest {
     // ------------------------------------------------------------------
 
     @Test
+    fun `gap marker uses first normalized entry at against read watermark`() {
+        val zeroOldest = RoomMirrorParser.parse(obj("at-normalization.json")).rooms.values.first().second
+        val zeroOldestExpected =
+            expectedFor("at-normalization")["rooms"]!!.jsonObject.values.first().jsonObject["mobile"]!!.jsonObject
+        assertEquals(
+            (zeroOldestExpected["hasHistoryGapWhenNeverOpened"] as JsonPrimitive).booleanOrNull,
+            RoomAnalysis.hasHistoryGap(zeroOldest.log, lastOpenedAt = 0L),
+        )
+
+        val positiveOldest =
+            RoomMirrorParser.parse(obj("v3-normal.json"))
+                .rooms.getValue("id:rmfixt001-aaaaa").second
+        val oldestAt = positiveOldest.log.first().normalizedAt
+        assertTrue(oldestAt > 0L)
+        assertTrue(RoomAnalysis.hasHistoryGap(positiveOldest.log, lastOpenedAt = oldestAt - 1L))
+        assertFalse(RoomAnalysis.hasHistoryGap(positiveOldest.log, lastOpenedAt = oldestAt))
+        assertFalse(RoomAnalysis.hasHistoryGap(emptyList(), lastOpenedAt = 0L))
+    }
+
+    @Test
     fun `badge - member mention badges never-opened room regardless of at`() {
         val room = RoomMirrorParser.parse(obj("at-normalization.json")).rooms.values.first().second
-        val expRoom = expectedFor("at-normalization")["rooms"]!!.jsonObject.values.first().jsonObject
+        val expRoom =
+            expectedFor("at-normalization")["rooms"]!!.jsonObject.values.first().jsonObject["mobile"]!!.jsonObject
         assertEquals(true, (expRoom["badgeNeverOpened"] as JsonPrimitive).booleanOrNull)
         assertTrue(UnreadBadge.anyMention(room.log, lastOpenedAt = 0L))
 
@@ -115,7 +165,8 @@ class RoomMirrorParserTest {
     @Test
     fun `badge - unreachable mentions when opened are listed by the oracle rule`() {
         val room = RoomMirrorParser.parse(obj("at-normalization.json")).rooms.values.first().second
-        val expRoom = expectedFor("at-normalization")["rooms"]!!.jsonObject.values.first().jsonObject
+        val expRoom =
+            expectedFor("at-normalization")["rooms"]!!.jsonObject.values.first().jsonObject["mobile"]!!.jsonObject
         val wantIdx =
             expRoom["mentionsUnreachableWhenOpened"]!!.jsonArray.map { (it as JsonPrimitive).content.toInt() }
         assertEquals(wantIdx, RoomAnalysis.mentionsUnreachableWhenOpened(room.log))
@@ -171,6 +222,32 @@ class RoomMirrorParserTest {
         // gone-v2 tombstone rev 5 has no cached room; nothing deleted, nothing discarded.
         assertTrue(result.deletedRoomKeys.isEmpty())
         assertTrue(result.discardedTombstoneKeys.isEmpty())
+    }
+
+    @Test
+    fun `legacy room display name comes from the map key`() {
+        val raw =
+            json.parseToJsonElement(
+                """{"version":2,"rooms":{"map-key":{"name":"stale-inner","log":[]}},"deleted":{}}""",
+            )
+
+        val snapshot = RoomMirrorParser.parse(raw)
+
+        assertEquals("map-key", snapshot.rooms.getValue("name:map-key").second.name)
+    }
+
+    @Test
+    fun `v2 negative tombstone revision clamps to zero before comparison`() {
+        val raw =
+            json.parseToJsonElement(
+                """{"version":2,"rooms":{"room":{"revision":0,"log":[]}},"deleted":{"room":-3}}""",
+            )
+
+        val snapshot = RoomMirrorParser.parse(raw)
+        val tombstones = Tombstones.apply(snapshot.deleted, cachedRevisionsOf(snapshot))
+
+        assertEquals(0L, snapshot.deleted.getValue("name:room"))
+        assertEquals(setOf("name:room"), tombstones.deletedRoomKeys)
     }
 
     @Test
@@ -308,6 +385,23 @@ class RoomMirrorParserTest {
     }
 
     @Test
+    fun `name tombstone keeps an evicted room watermark when revision cannot be matched`() {
+        val key = "name:evicted-room"
+        val watermark =
+            RoomCacheOps.WatermarkRecord(
+                roomKey = key,
+                lastOpenedAt = 100L,
+                lastSeenInMirrorAt = 200L,
+            )
+        val state = RoomCacheOps.State(watermarks = mapOf(key to watermark))
+        val snapshot = NormalizedSnapshot(3, emptyMap(), mapOf(key to 7L))
+
+        val outcome = RoomCacheOps.merge(state, snapshot, nowMs = 300L)
+
+        assertEquals(watermark, outcome.state.watermarks[key])
+    }
+
+    @Test
     fun `watermark cap keeps 200 records and evicts the smallest effective recency`() {
         val watermarks =
             (0..RoomCacheOps.WATERMARK_CAP).associate { index ->
@@ -379,6 +473,29 @@ class RoomMirrorParserTest {
         val snapshot = RoomMirrorParser.parse(raw)
 
         assertEquals(setOf("id:modern-id"), snapshot.rooms.keys)
+    }
+
+    @Test
+    fun `rooms without array logs are skipped rather than cached as empty`() {
+        val raw =
+            json.parseToJsonElement(
+                """
+                {
+                  "version": 3,
+                  "rooms": {
+                    "id:missing": {"name": "missing", "roomId": "missing"},
+                    "id:null": {"name": "null", "roomId": "null", "log": null},
+                    "id:object": {"name": "object", "roomId": "object", "log": {"not": "an array"}},
+                    "id:good": {"name": "good", "roomId": "good", "log": []}
+                  },
+                  "deleted": {}
+                }
+                """.trimIndent(),
+            )
+
+        val snapshot = RoomMirrorParser.parse(raw)
+
+        assertEquals(setOf("id:good"), snapshot.rooms.keys)
     }
 
     @Test
