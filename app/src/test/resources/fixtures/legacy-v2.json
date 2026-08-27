@@ -1,0 +1,37 @@
+{
+  "_comment": "SYNTHETIC. Fixture 5/5 -- pre-v3 version fallback, added because the original SPEC item 7 required v2/v1 coverage and the 4-fixture set silently dropped it (@hel minor #1). v2: rooms are keyed by BARE NAME at the top level (no `name:` prefix) and `deleted` values are gateway REVISIONS. normalizeGroupChatSyncSnapshot lifts every room key to `name:<name>` and injects `name` into the room object. Room entries here also predate the nested `from` shape being universal, so they are id-less.",
+  "version": 2,
+  "updatedAt": 1787730000000,
+  "rooms": {
+    "alpha-v2": {
+      "revision": 3,
+      "members": [{ "name": "bot-one", "handle": "bot-one" }],
+      "log": [
+        {
+          "from": { "kind": "user", "name": "You" },
+          "text": "v2 envelope, bare-name room key",
+          "at": 1787730000000
+        },
+        {
+          "from": { "kind": "member", "name": "bot-one" },
+          "text": "@user v2 mention still counts",
+          "at": 1787730001000
+        }
+      ]
+    },
+    "beta-v2": {
+      "revision": 1,
+      "members": [],
+      "log": [
+        {
+          "from": { "kind": "member", "name": "bot-two" },
+          "text": "no members array content, must not crash",
+          "at": 1787730002000
+        }
+      ]
+    }
+  },
+  "deleted": {
+    "gone-v2": 5
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "_comment": "SYNTHETIC. Fixture 2/5 step B (AFTER) — 'gamma' is gone with NO tombstone (48KB cap eviction), and 'warm' is gone WITH an id: tombstone (real disband). Expected: gamma stays in cache as not-currently-mirrored, warm is deleted from cache along with its read watermark. This is the fixture that separates 'missing' from 'deleted'.",
+  "version": 3,
+  "updatedAt": 1787737300000,
+  "rooms": {
+    "id:rmfixt010-hot01": {
+      "name": "hot",
+      "roomId": "rmfixt010-hot01",
+      "revision": 31,
+      "members": [{ "name": "bot-one", "handle": "bot-one" }],
+      "log": [
+        {
+          "id": "aaaaaaa1-0000-4000-8000-000000000001",
+          "from": { "kind": "member", "name": "bot-one" },
+          "text": "hot room, most recent activity",
+          "at": 1787737090000
+        },
+        {
+          "id": "aaaaaaa1-0000-4000-8000-000000000004",
+          "from": { "kind": "member", "name": "bot-one" },
+          "text": "@user hot room needs you now",
+          "at": 1787737290000
+        }
+      ]
+    }
+  },
+  "deleted": {
+    "id:rmfixt011-warm1": 22
+  }
+}

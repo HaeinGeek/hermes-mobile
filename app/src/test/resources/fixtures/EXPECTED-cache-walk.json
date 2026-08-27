@@ -1,0 +1,243 @@
+{
+  "retained": [
+    {
+      "step": 1,
+      "file": "v3-capped-room-evicted/02-before.json",
+      "events": [
+        "id:rmfixt012-gamma OPENED by user -> watermark=1787730000000"
+      ],
+      "cache": [
+        {
+          "key": "id:rmfixt010-hot01",
+          "name": "hot",
+          "present": true,
+          "lastSeenInMirrorAt": 1787737100000,
+          "lastOpenedAt": 0,
+          "badge": false
+        },
+        {
+          "key": "id:rmfixt011-warm1",
+          "name": "warm",
+          "present": true,
+          "lastSeenInMirrorAt": 1787737100000,
+          "lastOpenedAt": 0,
+          "badge": true
+        },
+        {
+          "key": "id:rmfixt012-gamma",
+          "name": "gamma",
+          "present": true,
+          "lastSeenInMirrorAt": 1787737100000,
+          "lastOpenedAt": 1787730000000,
+          "badge": false
+        }
+      ]
+    },
+    {
+      "step": 2,
+      "file": "v3-capped-room-evicted/03-after.json",
+      "events": [
+        "id:rmfixt011-warm1 absent without tombstone -> RETAINED as cached-missing (lastSeenInMirrorAt=1787737100000)",
+        "id:rmfixt012-gamma absent without tombstone -> RETAINED as cached-missing (lastSeenInMirrorAt=1787737100000)",
+        "id:rmfixt011-warm1 tombstoned -> room + watermark DELETED (id: final delete (L616))"
+      ],
+      "cache": [
+        {
+          "key": "id:rmfixt010-hot01",
+          "name": "hot",
+          "present": true,
+          "lastSeenInMirrorAt": 1787737300000,
+          "lastOpenedAt": 0,
+          "badge": true
+        },
+        {
+          "key": "id:rmfixt012-gamma",
+          "name": "gamma",
+          "present": false,
+          "lastSeenInMirrorAt": 1787737100000,
+          "lastOpenedAt": 1787730000000,
+          "badge": false
+        }
+      ]
+    },
+    {
+      "step": 3,
+      "file": "v3-capped-room-evicted/04-gamma-returns.json",
+      "events": [],
+      "cache": [
+        {
+          "key": "id:rmfixt010-hot01",
+          "name": "hot",
+          "present": true,
+          "lastSeenInMirrorAt": 1787737600000,
+          "lastOpenedAt": 0,
+          "badge": true
+        },
+        {
+          "key": "id:rmfixt012-gamma",
+          "name": "gamma",
+          "present": true,
+          "lastSeenInMirrorAt": 1787737600000,
+          "lastOpenedAt": 1787730000000,
+          "badge": false
+        }
+      ]
+    }
+  ],
+  "evicted": [
+    {
+      "step": 1,
+      "file": "v3-capped-room-evicted/02-before.json",
+      "events": [
+        "id:rmfixt012-gamma OPENED by user -> watermark=1787730000000"
+      ],
+      "cache": [
+        {
+          "key": "id:rmfixt010-hot01",
+          "name": "hot",
+          "present": true,
+          "lastSeenInMirrorAt": 1787737100000,
+          "lastOpenedAt": 0,
+          "badge": false
+        },
+        {
+          "key": "id:rmfixt011-warm1",
+          "name": "warm",
+          "present": true,
+          "lastSeenInMirrorAt": 1787737100000,
+          "lastOpenedAt": 0,
+          "badge": true
+        },
+        {
+          "key": "id:rmfixt012-gamma",
+          "name": "gamma",
+          "present": true,
+          "lastSeenInMirrorAt": 1787737100000,
+          "lastOpenedAt": 1787730000000,
+          "badge": false
+        }
+      ]
+    },
+    {
+      "step": 2,
+      "file": "v3-capped-room-evicted/03-after.json",
+      "events": [
+        "id:rmfixt011-warm1 absent without tombstone -> RETAINED as cached-missing (lastSeenInMirrorAt=1787737100000)",
+        "id:rmfixt012-gamma absent without tombstone -> RETAINED as cached-missing (lastSeenInMirrorAt=1787737100000)",
+        "id:rmfixt011-warm1 tombstoned -> room + watermark DELETED (id: final delete (L616))",
+        "id:rmfixt012-gamma cached-missing over cap 0 -> EVICTED, watermark dropped"
+      ],
+      "cache": [
+        {
+          "key": "id:rmfixt010-hot01",
+          "name": "hot",
+          "present": true,
+          "lastSeenInMirrorAt": 1787737300000,
+          "lastOpenedAt": 0,
+          "badge": true
+        }
+      ]
+    },
+    {
+      "step": 3,
+      "file": "v3-capped-room-evicted/04-gamma-returns.json",
+      "events": [],
+      "cache": [
+        {
+          "key": "id:rmfixt010-hot01",
+          "name": "hot",
+          "present": true,
+          "lastSeenInMirrorAt": 1787737600000,
+          "lastOpenedAt": 0,
+          "badge": true
+        },
+        {
+          "key": "id:rmfixt012-gamma",
+          "name": "gamma",
+          "present": true,
+          "lastSeenInMirrorAt": 1787737600000,
+          "lastOpenedAt": 0,
+          "badge": true
+        }
+      ]
+    }
+  ],
+  "evictedKeepWatermark": [
+    {
+      "step": 1,
+      "file": "v3-capped-room-evicted/02-before.json",
+      "events": [
+        "id:rmfixt012-gamma OPENED by user -> watermark=1787730000000"
+      ],
+      "cache": [
+        {
+          "key": "id:rmfixt010-hot01",
+          "name": "hot",
+          "present": true,
+          "lastSeenInMirrorAt": 1787737100000,
+          "lastOpenedAt": 0,
+          "badge": false
+        },
+        {
+          "key": "id:rmfixt011-warm1",
+          "name": "warm",
+          "present": true,
+          "lastSeenInMirrorAt": 1787737100000,
+          "lastOpenedAt": 0,
+          "badge": true
+        },
+        {
+          "key": "id:rmfixt012-gamma",
+          "name": "gamma",
+          "present": true,
+          "lastSeenInMirrorAt": 1787737100000,
+          "lastOpenedAt": 1787730000000,
+          "badge": false
+        }
+      ]
+    },
+    {
+      "step": 2,
+      "file": "v3-capped-room-evicted/03-after.json",
+      "events": [
+        "id:rmfixt011-warm1 absent without tombstone -> RETAINED as cached-missing (lastSeenInMirrorAt=1787737100000)",
+        "id:rmfixt012-gamma absent without tombstone -> RETAINED as cached-missing (lastSeenInMirrorAt=1787737100000)",
+        "id:rmfixt011-warm1 tombstoned -> room + watermark DELETED (id: final delete (L616))",
+        "id:rmfixt012-gamma cached-missing over cap 0 -> EVICTED, watermark KEPT (1787730000000)"
+      ],
+      "cache": [
+        {
+          "key": "id:rmfixt010-hot01",
+          "name": "hot",
+          "present": true,
+          "lastSeenInMirrorAt": 1787737300000,
+          "lastOpenedAt": 0,
+          "badge": true
+        }
+      ]
+    },
+    {
+      "step": 3,
+      "file": "v3-capped-room-evicted/04-gamma-returns.json",
+      "events": [],
+      "cache": [
+        {
+          "key": "id:rmfixt010-hot01",
+          "name": "hot",
+          "present": true,
+          "lastSeenInMirrorAt": 1787737600000,
+          "lastOpenedAt": 0,
+          "badge": true
+        },
+        {
+          "key": "id:rmfixt012-gamma",
+          "name": "gamma",
+          "present": true,
+          "lastSeenInMirrorAt": 1787737600000,
+          "lastOpenedAt": 1787730000000,
+          "badge": false
+        }
+      ]
+    }
+  ]
+}

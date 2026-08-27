@@ -1,0 +1,50 @@
+{
+  "_comment": "SYNTHETIC. Fixture 2/6 step A (BEFORE) — three rooms present. Pair with 03-after.json (gamma evicted by the 48KB cap with NO tombstone; warm disbanded WITH an id: tombstone) and 04-gamma-returns.json (gamma comes back). gamma carries an OLD @user mention on purpose: it is the payload for the eviction-return false positive that @hel called out — if the cached-missing eviction cap drops gamma's read watermark, that stale mention resurfaces as unread when gamma returns.",
+  "version": 3,
+  "updatedAt": 1787737100000,
+  "rooms": {
+    "id:rmfixt010-hot01": {
+      "name": "hot",
+      "roomId": "rmfixt010-hot01",
+      "revision": 30,
+      "members": [{ "name": "bot-one", "handle": "bot-one" }],
+      "log": [
+        {
+          "id": "aaaaaaa1-0000-4000-8000-000000000001",
+          "from": { "kind": "member", "name": "bot-one" },
+          "text": "hot room, most recent activity",
+          "at": 1787737090000
+        }
+      ]
+    },
+    "id:rmfixt011-warm1": {
+      "name": "warm",
+      "roomId": "rmfixt011-warm1",
+      "revision": 22,
+      "members": [{ "name": "bot-two", "handle": "bot-two" }],
+      "log": [
+        {
+          "id": "aaaaaaa1-0000-4000-8000-000000000002",
+          "from": { "kind": "member", "name": "bot-two" },
+          "text": "@user warm room asked you something before eviction",
+          "at": 1787737050000
+        }
+      ]
+    },
+    "id:rmfixt012-gamma": {
+      "name": "gamma",
+      "roomId": "rmfixt012-gamma",
+      "revision": 7,
+      "members": [{ "name": "bot-three", "handle": "bot-three" }],
+      "log": [
+        {
+          "id": "aaaaaaa1-0000-4000-8000-000000000003",
+          "from": { "kind": "member", "name": "bot-three" },
+          "text": "@user gamma asked you this BEFORE it was evicted; must not resurface as unread if you already read it",
+          "at": 1787730000000
+        }
+      ]
+    }
+  },
+  "deleted": {}
+}
