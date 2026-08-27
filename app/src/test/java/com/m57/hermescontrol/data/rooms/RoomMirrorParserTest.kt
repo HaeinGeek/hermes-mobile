@@ -11,9 +11,10 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Phase 3 parser tests: every expectation comes from the Desktop-derived oracle
- * (HaeinGeek/asgard-rooms PR #2, `EXPECTED.json` / `EXPECTED-cache-walk.json`).
- * A parser passing these reproduces Desktop.
+ * Phase 3 parser tests. Fixture-backed expectations come from the Desktop-derived
+ * oracle (HaeinGeek/asgard-rooms PR #2, `EXPECTED.json` /
+ * `EXPECTED-cache-walk.json`). Display ordering is a separate mobile UI contract,
+ * so its purpose-built tie case deliberately does not reuse the merge-order oracle.
  */
 class RoomMirrorParserTest {
     private val json = Json { ignoreUnknownKeys = true }
@@ -65,37 +66,16 @@ class RoomMirrorParserTest {
 
     @Test
     fun `display order is normalized at with array-order tiebreak`() {
-        val room = RoomMirrorParser.parse(obj("at-normalization.json")).rooms.values.first().second
-        val exp =
-            expectedFor("at-normalization").let { e ->
-                e["rooms"]!!.jsonObject.values
-                    .first()
-                    .jsonObject["sortOrderByEntryKey"]!!
-                    .jsonArray
-                    .map { it.toString() }
-            }
-        val got =
-            RoomAnalysis.sortEntriesByNormalizedAt(room.log).map {
-                    i ->
-                JsonPrimitive(entryKeyJson(room.log[i])).toString()
-            }
-        assertEquals(exp, got)
-    }
-
-    /** Mirrors the oracle's entry key: `id:<id>` when present, else JSON.stringify([...]). */
-    private fun entryKeyJson(e: LogEntry): String {
-        val id = e.id
-        if (id != null) return "id:$id"
-        // JS JSON.stringify of [Number, String, String, String, String]
-        val arr =
+        val log =
             listOf(
-                e.normalizedAt.toString(),
-                "\"" + (e.from?.kind ?: "") + "\"",
-                "\"" + (e.from?.name ?: "") + "\"",
-                "\"" + (e.from?.source ?: "") + "\"",
-                "\"legacy\"",
+                LogEntry(id = "z-last-lexically", at = JsonPrimitive(20L)),
+                LogEntry(id = "a-first-lexically", at = JsonPrimitive(20L)),
+                LogEntry(id = "middle-time", at = JsonPrimitive(10L)),
             )
-        return "[" + arr.joinToString(",") + ","
+
+        val order = RoomAnalysis.sortEntriesByNormalizedAt(log)
+
+        assertEquals(listOf(2, 0, 1), order)
     }
 
     // ------------------------------------------------------------------
@@ -385,7 +365,15 @@ class RoomMirrorParserTest {
     fun `v3 room identity prefers roomId over the incoming map key`() {
         val raw =
             json.parseToJsonElement(
-                """{"version":3,"rooms":{"name:legacy":{"name":"legacy","roomId":"modern-id","log":[]}},"deleted":{}}""",
+                """
+                {
+                  "version": 3,
+                  "rooms": {
+                    "name:legacy": {"name": "legacy", "roomId": "modern-id", "log": []}
+                  },
+                  "deleted": {}
+                }
+                """.trimIndent(),
             )
 
         val snapshot = RoomMirrorParser.parse(raw)

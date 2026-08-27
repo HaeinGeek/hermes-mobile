@@ -60,13 +60,17 @@ holds and nothing more.
   never flat `{kind, name}` as rev 1 showed.
 - The snapshot has **no** `needsYou`. That flag is a Desktop-local atom and never
   enters the projection; see *Unread* below for its replacement.
-- Limits: **at most 16 messages per room** (fewer or zero possible when the 48 KB
-  cap bites), **1200 chars per message** (`GROUP_CHAT_SYNC_TEXT_CHARS`), whole rooms
-  may be evicted by the cap (quietest first) — the room list is a *Desktop-mirror
-  window*, not the full room set. Rooms with empty logs are not projected.
-- Non-ASCII costs ~2× its UTF-8 size against the cap (gateway counts 6 bytes per
-  BMP codepoint), so Korean-heavy mirrors rotate faster than English ones; live
-  measurement showed a sub-hour window.
+- Limits: **at most 16 messages per projected room**, **1200 chars per message**
+  (`GROUP_CHAT_SYNC_TEXT_CHARS`); the 48 KB cap may evict whole rooms (quietest
+  first) — the room list is a *Desktop-mirror window*, not the full room set.
+  Rooms with empty logs are not projected, so a projected room never represents
+  a zero-message payload.
+- The gateway estimator charges 6 bytes per non-ASCII BMP codepoint versus its
+  3-byte UTF-8 representation, so Korean-heavy mirrors consume the 48 KB budget
+  faster than ASCII-heavy mirrors. This is source-derived, not a live-window
+  estimate: `asgard-rooms` PR #2 runs the extracted Desktop
+  `groupChatGatewayJsonSize` and records the cap-crossing thresholds in
+  `tests/fixtures/GATEWAY-SIZE-EVIDENCE.json`.
 
 ## Normalization and identity
 
@@ -74,11 +78,12 @@ holds and nothing more.
   `normalizeGroupChatSyncSnapshot`; v1 tombstones are wall-clock ms and are clamped
   to revision 0 so they can never outrank a real revision and mass-delete the cache.
 - Room identity: `id:<roomId>` when present, else original `name:` key.
-- `entry.at` normalization: numeric coercion of missing/null/non-numeric to `0`
-  (Kotlin safe conversion replicating `Number(entry.at || 0)`), **negative values
-  clamp to `0`** — a deliberate divergence from Desktop, making `at >= 0` a single
-  invariant for sorting and watermark comparison. Numeric strings parse; floats
-  truncate to Long; display order is normalized `at`, ties broken by log array order.
+- `entry.at` normalization follows `Number(entry.at || 0)`: missing, null,
+  non-numeric strings, and boolean `false` become `0`; boolean `true` becomes `1`.
+  **Negative values clamp to `0`** — a deliberate divergence from Desktop, making
+  `at >= 0` a single invariant for sorting and watermark comparison. Numeric
+  strings parse; floats truncate to Long; display order is normalized `at`, ties
+  broken by log array order.
 - `entry.id`, when present, is only an auxiliary dedup key — never the primary
   identity or watermark basis.
 
@@ -166,14 +171,15 @@ prerequisite (parser/watcher stay deferred backlog).
 1. Room data source is WS `profiles.list({"include_sessions":false})`; REST
    `getProfiles()` is not used for room data.
 2. Parser/cache tests pass against the fixture set in
-   `HaeinGeek/asgard-rooms@feat/parser-fixtures` (PR #2): **7 fixtures** —
+   `HaeinGeek/asgard-rooms@feat/parser-fixtures` (PR #2): **8 snapshot fixtures** —
    `v3-normal.json`, `v3-capped-room-evicted/{02-before,03-after,04-gamma-returns}.json`,
-   `legacy-name-key.json`, `legacy-at-only.json`→`at-normalization.json`,
-   `legacy-v1.json`, `legacy-v2.json` — asserted against `EXPECTED.json` and
-   `EXPECTED-cache-walk.json` (Desktop-derived oracle).
+   `legacy-name-key.json`, `at-normalization.json`, `legacy-v1.json`, and
+   `legacy-v2.json` — asserted against `EXPECTED.json` and
+   `EXPECTED-cache-walk.json` (Desktop-derived oracle). Gateway-size provenance is
+   a separate generated evidence artifact, not a parser fixture.
 3. v3 nested `from`, all optional fields, `revision`, and mixed tombstones parse
-   without crashing; malformed `at` normalizes deterministically (non-numeric and
-   negative → `0L`).
+   without crashing; malformed `at` normalizes deterministically (missing, null,
+   non-numeric, boolean `false`, and negative → `0L`; boolean `true` → `1L`).
 4. Snapshot-absent rooms survive in cache; only matching tombstones delete them;
    stale tombstones are dropped.
 5. Only member `@user` mentions badge; user/system entries, pre-window entries, and
@@ -189,6 +195,7 @@ prerequisite (parser/watcher stay deferred backlog).
 
 ## Build prerequisites (Linux pod)
 
-JDK 17 (Temurin, sdkman) + Android cmdline-tools under `~/android-sdk`
-(platforms;android-36, build-tools;36.0.0); Gradle wrapper 9.7.0 verified working.
-`assembleDebug` builds green on the pod — mac hand-off is no longer required.
+JDK 21 + Android cmdline-tools under `~/android-sdk`
+(`platforms;android-37.0`, `build-tools;37.0.0`); Gradle wrapper 9.7.0 verified
+working. On the Linux pod, `./gradlew testDebugUnitTest ktlintCheck assembleDebug`
+passes with this toolchain — mac hand-off is no longer required.

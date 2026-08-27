@@ -16,8 +16,9 @@ import kotlinx.serialization.json.decodeFromJsonElement
  *
  * The expected values for every rule implemented here come from the
  * Desktop-derived oracle in HaeinGeek/asgard-rooms PR #2
- * (`tests/fixtures/EXPECTED.json`, `EXPECTED-cache-walk.json`); a parser that
- * passes `RoomMirrorParserTest` reproduces Desktop.
+ * (`tests/fixtures/EXPECTED.json`, `EXPECTED-cache-walk.json`). Fixture-backed
+ * tests reproduce Desktop; the mobile-only display-order contract is tested
+ * separately from Desktop's merge-order comparator.
  */
 object RoomMirrorParser {
     val json = Json { ignoreUnknownKeys = true }
@@ -27,7 +28,6 @@ object RoomMirrorParser {
         val envelope = json.decodeFromJsonElement(RoomsSnapshot.serializer(), raw)
         return normalize(envelope, declaredVersion = envelope.version)
     }
-
 
     /**
      * Version fallback per `normalizeGroupChatSyncSnapshot`:
@@ -61,7 +61,6 @@ object RoomMirrorParser {
                 }
         return NormalizedSnapshot(declaredVersion, roomsBuilder.toMap(), deleted)
     }
-
 
     /** Stable room identity: `id:<roomId>` when present, else the original key. */
     fun roomIdentity(
@@ -277,8 +276,7 @@ object ProfileSelection {
         return carriers.singleOrNull() ?: Selection.Unavailable
     }
 
-    private fun profileName(profile: JsonObject): String? =
-        (profile["name"] as? JsonPrimitive)?.contentOrNull
+    private fun profileName(profile: JsonObject): String? = (profile["name"] as? JsonPrimitive)?.contentOrNull
 
     private fun snapshotFrom(profile: JsonObject): JsonElement? {
         val meta = (profile["ui_meta"] ?: profile["uiMeta"]) as? JsonObject ?: return null

@@ -104,5 +104,4 @@ class RoomsRepository(
                 state = merged.state,
             )
         }
-
 }
