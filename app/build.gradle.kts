@@ -8,6 +8,24 @@ plugins {
     alias(libs.plugins.ksp)
 }
 
+// Fixture files mirrored from HaeinGeek/asgard-rooms (kept in lockstep with
+// tools/roomfixtures/verify_fixture_sync.py — the authoritative list lives
+// there; this copy backs the unpinned-file check of checkFixtureParity).
+val COPIED_FIXTURES = setOf(
+    "EXPECTED-cache-walk.json",
+    "EXPECTED.json",
+    "GATEWAY-SIZE-EVIDENCE.json",
+    "at-normalization.json",
+    "legacy-name-key.json",
+    "legacy-v1.json",
+    "legacy-v2.json",
+    "v3-capped-room-evicted/02-before.json",
+    "v3-capped-room-evicted/03-after.json",
+    "v3-capped-room-evicted/04-gamma-returns.json",
+    "v3-malformed.json",
+    "v3-normal.json",
+)
+
 android {
     namespace = "com.m57.hermescontrol"
 
@@ -290,6 +308,63 @@ tasks.register("checkColorLiterals") {
 
 tasks.named("check") {
     dependsOn("checkColorLiterals")
+}
+
+// ── Fixture parity gate ───────────────────────────────────────────────────
+// Fails the build when the shared room-view fixtures drift from the pinned
+// asgard-rooms oracle. The mobile fixture copy under
+// app/src/test/resources/fixtures/ is verified by the committed deterministic
+// verifier tools/roomfixtures/verify_fixture_sync.py, which
+//   1. checks every copied fixture byte-identical against the upstream
+//      asgard-rooms fixture-set.sha256 embedded in sync-info.json, and
+//   2. regenerates the mobile fixture-set.sha256 manifest and byte-compares
+//      it with the committed one — so the pin itself is derived from the
+//      upstream pin + source commit, never hand-typed.
+// Regenerate the manifest only via `verify_fixture_sync.py write` after
+// syncing from a reviewed asgard-rooms head.
+tasks.register("checkFixtureParity") {
+    group = "verification"
+    description = "Fails when test fixtures or the pin manifest drift from the pinned asgard-rooms oracle."
+
+    // Configuration-cache-safe: capture plain strings resolved at configuration time.
+    val verifierPath = rootProject.projectDir.resolve("tools/roomfixtures/verify_fixture_sync.py").absolutePath
+    val fixturesDirPath = layout.projectDirectory.dir("src/test/resources/fixtures").asFile.absolutePath
+    val workDir = rootProject.projectDir.absolutePath
+    val copiedFixtures = COPIED_FIXTURES.toSet()
+
+    doLast {
+        val verifierFile = File(verifierPath)
+        if (!verifierFile.isFile) {
+            throw GradleException("fixture sync verifier missing at $verifierPath")
+        }
+        val proc = ProcessBuilder("python3", verifierPath, "check")
+            .directory(File(workDir))
+            .redirectErrorStream(true)
+            .start()
+        val out = proc.inputStream.bufferedReader().readText()
+        val code = proc.waitFor()
+        logger.lifecycle(out.trim())
+        if (code != 0) {
+            throw GradleException(
+                "checkFixtureParity failed (exit $code). Fixtures or the pin manifest drifted\n" +
+                    "from the pinned asgard-rooms oracle — see the verifier output above. Sync all\n" +
+                    "copied fixtures from the reviewed upstream head and regenerate the manifest\n" +
+                    "with tools/roomfixtures/verify_fixture_sync.py write; never edit by hand.",
+            )
+        }
+        val fixturesDir = File(fixturesDirPath)
+        val unpinned = fixturesDir.walkTopDown()
+            .filter { it.isFile && it.name != "fixture-set.sha256" }
+            .filterNot { it.relativeTo(fixturesDir).path in copiedFixtures }
+            .map { it.relativeTo(fixturesDir).path }
+            .toList()
+        if (unpinned.isNotEmpty()) throw GradleException("fixtures present but not covered by the sync verifier: $unpinned")
+        logger.lifecycle("checkFixtureParity: fixture copy + derived pin manifest verified ✅")
+    }
+}
+
+tasks.named("check") {
+    dependsOn("checkFixtureParity")
 }
 
 tasks.withType<Test> {

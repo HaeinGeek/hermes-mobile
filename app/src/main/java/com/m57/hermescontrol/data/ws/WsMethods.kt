@@ -34,6 +34,11 @@ object WsMethods {
     const val SLASH_EXEC = "slash.exec"
     const val CONFIG_SET = "config.set"
 
+    // ── Profiles (global) ─────────────────────────────────────────────────
+
+    /** Lists every profile, including gateway-only `ui_meta`; never profile-scoped. */
+    const val PROFILES_LIST = "profiles.list"
+
     // ── Attachments ───────────────────────────────────────────────────────
 
     /** Upload image bytes (base64) from a remote client. */

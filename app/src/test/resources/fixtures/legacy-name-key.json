@@ -1,0 +1,70 @@
+{
+  "_comment": "SYNTHETIC. Fixture 3/5 — v3 envelope carrying LEGACY name:-keyed rooms (rooms minted before roomId existed, so groupChatRoomKey falls back to `name:<name>`). Exercises both name: tombstone branches: 'stale-tomb' has tombstone revision BELOW the room revision (tombstone must be DISCARDED, room kept, per plugin.js L617-621), 'ripe-tomb' has tombstone revision >= room revision (room deleted). Also carries an id:-keyed room alongside to prove mixed keying in one envelope.",
+  "version": 3,
+  "updatedAt": 1787737400000,
+  "rooms": {
+    "name:oldroom": {
+      "name": "oldroom",
+      "revision": 3,
+      "members": [{ "name": "bot-one", "handle": "bot-one" }],
+      "log": [
+        {
+          "id": "bbbbbbb1-0000-4000-8000-000000000001",
+          "from": { "kind": "user", "name": "You" },
+          "text": "legacy room with no roomId",
+          "at": 1787737400000
+        },
+        {
+          "id": "bbbbbbb1-0000-4000-8000-000000000002",
+          "from": { "kind": "member", "name": "bot-one" },
+          "text": "@user legacy room mentions you",
+          "at": 1787737401000
+        }
+      ]
+    },
+    "name:stale-tomb": {
+      "name": "stale-tomb",
+      "revision": 10,
+      "members": [{ "name": "bot-two", "handle": "bot-two" }],
+      "log": [
+        {
+          "id": "bbbbbbb1-0000-4000-8000-000000000003",
+          "from": { "kind": "member", "name": "bot-two" },
+          "text": "recreated after an older disband; tombstone must not kill this",
+          "at": 1787737402000
+        }
+      ]
+    },
+    "name:ripe-tomb": {
+      "name": "ripe-tomb",
+      "revision": 4,
+      "members": [{ "name": "bot-three", "handle": "bot-three" }],
+      "log": [
+        {
+          "id": "bbbbbbb1-0000-4000-8000-000000000004",
+          "from": { "kind": "member", "name": "bot-three" },
+          "text": "genuinely disbanded, tombstone outranks this",
+          "at": 1787737403000
+        }
+      ]
+    },
+    "id:rmfixt020-mixed": {
+      "name": "modern",
+      "roomId": "rmfixt020-mixed",
+      "revision": 2,
+      "members": [{ "name": "bot-four", "handle": "bot-four" }],
+      "log": [
+        {
+          "id": "bbbbbbb1-0000-4000-8000-000000000005",
+          "from": { "kind": "member", "name": "bot-four" },
+          "text": "id-keyed room in the same envelope",
+          "at": 1787737404000
+        }
+      ]
+    }
+  },
+  "deleted": {
+    "name:stale-tomb": 6,
+    "name:ripe-tomb": 4
+  }
+}

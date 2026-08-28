@@ -1,0 +1,44 @@
+{
+  "_comment": "SYNTHETIC. Fixture 2/6 step C (GAMMA RETURNS) — the eviction-return case @hel called out. gamma reappears with its log UNCHANGED (same entry id, same at=1787730000000, still the old @user mention); only 'hot' has moved on. This is the exact combination of decision 2 (lastOpenedAt==0 -> badge unconditionally) and decision 3 (evicting a cached-missing room drops its read watermark): if the cap evicted gamma's watermark while it was absent, gamma now reads as never-opened and the STALE mention lights the badge again. Two behaviours are consistent, pick one and assert it -- see EXPECTED.md 'Two decisions'. Note gamma's revision is unchanged at 7: revision does NOT distinguish eviction-return from new activity, so a parser cannot use it to suppress the false positive.",
+  "version": 3,
+  "updatedAt": 1787737600000,
+  "rooms": {
+    "id:rmfixt010-hot01": {
+      "name": "hot",
+      "roomId": "rmfixt010-hot01",
+      "revision": 32,
+      "members": [{ "name": "bot-one", "handle": "bot-one" }],
+      "log": [
+        {
+          "id": "aaaaaaa1-0000-4000-8000-000000000004",
+          "from": { "kind": "member", "name": "bot-one" },
+          "text": "@user hot room needs you now",
+          "at": 1787737290000
+        },
+        {
+          "id": "aaaaaaa1-0000-4000-8000-000000000005",
+          "from": { "kind": "member", "name": "bot-one" },
+          "text": "hot room keeps going, no mention",
+          "at": 1787737590000
+        }
+      ]
+    },
+    "id:rmfixt012-gamma": {
+      "name": "gamma",
+      "roomId": "rmfixt012-gamma",
+      "revision": 7,
+      "members": [{ "name": "bot-three", "handle": "bot-three" }],
+      "log": [
+        {
+          "id": "aaaaaaa1-0000-4000-8000-000000000003",
+          "from": { "kind": "member", "name": "bot-three" },
+          "text": "@user gamma asked you this BEFORE it was evicted; must not resurface as unread if you already read it",
+          "at": 1787730000000
+        }
+      ]
+    }
+  },
+  "deleted": {
+    "id:rmfixt011-warm1": 22
+  }
+}
