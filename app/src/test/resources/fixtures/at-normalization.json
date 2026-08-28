@@ -185,6 +185,50 @@
           "at": "1e400"
         },
         {
+          "_expect_at": "9007199254740992",
+          "_case": "IEEE-754 witness (2^53 + 1): 9007199254740993 is a VALID Kotlin Long but is NOT representable as a binary64 double. Both the oracle (Number()) and Kotlin (String.toDouble()) parse to the NEAREST double 9007199254740992 = 2^53, which rounds DOWN by 1. An exact-integer parser (BigDecimal/BigInteger) would keep ...993 and diverge from Desktop; the contract is nearest-double rounding, then trunc.",
+          "id": "ccccccc1-0000-4000-8000-000000000020",
+          "from": {
+            "kind": "member",
+            "name": "bot-one"
+          },
+          "text": "at is 2^53 + 1, first integer a double cannot represent",
+          "at": "9007199254740993"
+        },
+        {
+          "_expect_at": "9007199254740996",
+          "_case": "IEEE-754 witness (2^53 + 3): 9007199254740995 is a valid Long whose nearest double is 9007199254740996, ONE ABOVE it — double parsing can round UP as well as down. Desktop's Number() and Kotlin's toDouble() agree on this; the value stored is the double, not the input integer.",
+          "id": "ccccccc1-0000-4000-8000-000000000021",
+          "from": {
+            "kind": "member",
+            "name": "bot-one"
+          },
+          "text": "at is 2^53 + 3, nearest double rounds up",
+          "at": "9007199254740995"
+        },
+        {
+          "_expect_at": "4611686018427387904",
+          "_case": "IEEE-754 witness (2^62 + 1): mid-range probe. 4611686018427387905 is odd and above 2^53; doubles this large are spaced 1024 apart, so the nearest double is 4611686018427387904 = 2^62, off by 1. Any parser that claims exact Long round-trip through a double silently changes the watermark basis here.",
+          "id": "ccccccc1-0000-4000-8000-000000000022",
+          "from": {
+            "kind": "member",
+            "name": "bot-one"
+          },
+          "text": "at is 2^62 + 1, odd Long mid-range",
+          "at": "4611686018427387905"
+        },
+        {
+          "_expect_at": "9223372036854774784",
+          "_case": "IEEE-754 witness (largest double below 2^63, minus 1): 9223372036854774785 is a valid Long one above the largest representable double 9223372036854774784 (2^63 - 2^10). It parses DOWN to ...784 and stays a legitimate Long-storable timestamp — accepted (not clamped), because the contract is nearest-double rounding, not integer exactness.",
+          "id": "ccccccc1-0000-4000-8000-000000000023",
+          "from": {
+            "kind": "member",
+            "name": "bot-one"
+          },
+          "text": "at is one above the largest Long-storable double",
+          "at": "9223372036854774785"
+        },
+        {
           "_expect_at": 0,
           "_case": "at is finite but exceeds Kotlin Long storage -> mobile clamps to 0. NOTE: the Desktop-domain normAt KEEPS this value (it is a finite double); only normAtMobileLong rejects it. EXPECTED.json carries both columns, and _expect_at follows the MOBILE column.",
           "id": "ccccccc1-0000-4000-8000-000000000011",

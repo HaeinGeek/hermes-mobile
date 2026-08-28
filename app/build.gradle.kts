@@ -1,4 +1,5 @@
 import org.gradle.api.tasks.testing.Test
+import java.security.MessageDigest
 
 plugins {
     alias(libs.plugins.android.application)
@@ -290,6 +291,88 @@ tasks.register("checkColorLiterals") {
 
 tasks.named("check") {
     dependsOn("checkColorLiterals")
+}
+
+// Fixture parity gate: fails the build when the shared room-view fixtures
+// drift from the pinned asgard-rooms oracle. The pin lives in
+// app/src/test/resources/fixtures/fixture-set.sha256; regenerate it only from
+// a reviewed asgard-rooms head (never by hand).
+tasks.register("checkFixtureParity") {
+    group = "verification"
+    description = "Fails when test fixtures drift from the pinned asgard-rooms oracle."
+
+    val fixturesDir = layout.projectDirectory.dir("src/test/resources/fixtures")
+
+    doLast {
+        val pinFile = File(fixturesDir.asFile, "fixture-set.sha256")
+        if (!pinFile.isFile) {
+            throw GradleException("fixture-set.sha256 missing at ${pinFile.absolutePath}")
+        }
+
+        data class Entry(val hash: String, val name: String)
+
+        val pinned = mutableListOf<Entry>()
+        pinFile.readLines().forEach { raw ->
+            val line = raw.trim()
+            if (line.isEmpty() || line.startsWith("#")) return@forEach
+            val parts = line.split(Regex("\\s+"), limit = 2)
+            if (parts.size != 2) throw GradleException("unparseable pin line: $line")
+            val (hash, rawName) = parts
+            val name = rawName.trimStart('*')
+            val hex = hash.lowercase()
+            if (hex.length != 64 || hex.any { it !in '0'..'9' && it !in 'a'..'f' }) {
+                throw GradleException("pin hash is not sha256 hex: $line")
+            }
+            pinned += Entry(hex, name)
+        }
+        if (pinned.isEmpty()) throw GradleException("fixture-set.sha256 pins no files")
+
+        val missing = mutableListOf<String>()
+        pinned.forEach { entry ->
+            val file = File(fixturesDir.asFile, entry.name)
+            if (!file.isFile) {
+                missing += entry.name
+                return@forEach
+            }
+            val actual = file.inputStream().use { input ->
+                val digest = MessageDigest.getInstance("SHA-256")!!
+                val buffer = ByteArray(64 * 1024)
+                while (true) {
+                    val read = input.read(buffer)
+                    if (read < 0) break
+                    digest.update(buffer, 0, read)
+                }
+                digest.digest().joinToString("") { byte -> "%02x".format(byte) }
+            }
+            if (actual != entry.hash) {
+                throw GradleException(
+                    "fixture '${entry.name}' drifted from the pinned oracle.\n" +
+                        "  pin:    ${entry.hash}\n" +
+                        "  actual: $actual\n" +
+                        "Sync all pinned fixtures from the reviewed asgard-rooms head and " +
+                        "regenerate the pin; never edit fixtures to force a pass.",
+                )
+            }
+        }
+        if (missing.isNotEmpty()) throw GradleException("pinned fixtures missing: $missing")
+
+        // A pin that silently stops covering the fixture set is a vacuous gate:
+        // every fixture file must be pinned on purpose.
+        val pinnedNames = pinned.map { it.name }.toSet()
+        val unpinned =
+            fixturesDir.asFile.walkTopDown()
+                .filter { it.isFile && it != pinFile }
+                .filterNot { it.relativeTo(fixturesDir.asFile).path in pinnedNames }
+                .map { it.relativeTo(fixturesDir.asFile).path }
+                .toList()
+        if (unpinned.isNotEmpty()) throw GradleException("fixtures present but not pinned: $unpinned")
+
+        logger.lifecycle("checkFixtureParity: ${pinned.size} files match the pinned oracle ✅")
+    }
+}
+
+tasks.named("check") {
+    dependsOn("checkFixtureParity")
 }
 
 tasks.withType<Test> {

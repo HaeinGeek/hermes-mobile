@@ -1,6 +1,8 @@
-# SPEC: Bot Mode room view for hermes-mobile (rev 2)
+# SPEC: Bot Mode room view for hermes-mobile (rev 2.3)
 
-Rev 2 supersedes the initial SPEC (`6171b5c` in hermes-mobile). Every claim below is
+Rev 2 supersedes the initial SPEC (`6171b5c` in hermes-mobile); rev 2.1 syncs the
+reviewed contract, rev 2.2 the oracle-pinned normalization rules, and rev 2.3 the
+IEEE-754/JVM Long boundary. Every claim below is
 verified against the **real** Desktop source, not the release note: release
 "Hermes Agent v0.20.5" has no `v0.20.5` Git tag — its tag is **`v2026.8.19`**, file
 `apps/desktop/src/plugins/hermes-bots/plugin.js`.
@@ -81,22 +83,35 @@ holds and nothing more.
 - `version < 3`: name-keyed rooms are lifted to `name:<name>` per
   `normalizeGroupChatSyncSnapshot`, and the map key replaces any stale inner
   `name`. v1 tombstones are wall-clock ms and clamp to revision 0 so they can
-  never outrank a real revision and mass-delete the cache; negative v2+ tombstone
-  revisions also clamp to 0 before comparison.
-- A room record is accepted only when it is an object whose `log` is an array;
-  missing, null, or non-array logs are dropped as malformed instead of becoming
-  phantom empty rooms.
+  never outrank a real revision and mass-delete the cache; negative v2 tombstone
+  revisions also clamp to 0 before comparison. These are the **pre-v3 only**
+  normalization rules.
+- **v3 snapshots are trusted as-is.** For `version >= 3`,
+  `normalizeGroupChatSyncSnapshot` (plugin.js L367–376) passes `rooms` and
+  `deleted` through **unchanged**: it does not drop rooms whose `log` is missing
+  or not an array, does not clamp negative tombstone revisions, and does not let
+  the map key replace a stale inner `name`. Whatever the Desktop projection
+  wrote is read back verbatim; a consumer that needs those invariants must apply
+  them itself, after normalization. The fixture `v3-malformed.json` pins this
+  passthrough (malformed room kept, negative tombstone kept, stale inner name
+  kept); the id: tombstone rule still final-deletes such a room in the cache
+  walk regardless of sign.
 - Room identity: `id:<roomId>` when present, else original `name:` key.
 - `entry.at` normalization follows `Number(entry.at || 0)`: missing, null,
   non-numeric strings, and boolean `false` become `0`; boolean `true` becomes `1`.
   **Negative values clamp to `0`** — a deliberate divergence from Desktop, making
   `at >= 0` a single invariant for sorting and watermark comparison. Numeric
   strings use JavaScript `Number()` grammar (`"0x10"` → `16`, `"1d"` → `0`);
-  floats truncate to Long. Non-finite values and finite values outside Kotlin
-  Long storage clamp to `0` rather than saturating a read watermark. Display
-  order is normalized `at`, ties broken by log array order. This bound is a
-  prerequisite for the monotonic read-through rule in *Unread*: an outlier
-  promoted to the watermark could never be lowered.
+  floats truncate to Long. The Long boundary is the **IEEE-754/JVM rule**: a
+  decimal in the valid Kotlin Long range whose nearest double rounds *away* from
+  the exact integer normalizes to that double's value (e.g. `2^53+1` → `2^53`,
+  `2^53+3` → `2^53+4`, `2^62+1` → `2^62`); the largest double below `2^63`
+  (`9223372036854774784`) is the last kept value; `2^63` and `Long.MAX_VALUE`
+  itself normalize to `0` because `Long.MAX_VALUE.toDouble()` rounds up to
+  exactly `2^63`, which cannot be a Long. This bound is a prerequisite for the
+  monotonic read-through rule in *Unread*: an outlier promoted to the watermark
+  could never be lowered. Display order is normalized `at`, ties broken by log
+  array order.
 - `entry.id`, when present, is only an auxiliary dedup key — never the primary
   identity or watermark basis.
 
@@ -191,18 +206,26 @@ prerequisite (parser/watcher stay deferred backlog).
 
 1. Room data source is WS `profiles.list({"include_sessions":false})`; REST
    `getProfiles()` is not used for room data.
-2. Parser/cache tests pass against the fixture set in
-   `HaeinGeek/asgard-rooms@feat/parser-fixtures` (PR #2): **8 snapshot fixtures** —
-   `v3-normal.json`, `v3-capped-room-evicted/{02-before,03-after,04-gamma-returns}.json`,
+2. Parser/cache tests pass against the fixture set pinned from
+   `HaeinGeek/asgard-rooms` PR #4 (head `eae33c7d`): **9 snapshot fixtures** —
+   `v3-normal.json`, `v3-malformed.json`,
+   `v3-capped-room-evicted/{02-before,03-after,04-gamma-returns}.json`,
    `legacy-name-key.json`, `at-normalization.json`, `legacy-v1.json`, and
    `legacy-v2.json` — asserted against `EXPECTED.json` and
-   `EXPECTED-cache-walk.json` (Desktop-derived oracle). Gateway-size provenance is
+   `EXPECTED-cache-walk.json` (Desktop-derived oracle). `fixture-set.sha256`
+   pins every fixture byte-for-byte; `./gradlew checkFixtureParity` (part of
+   `check`) fails the build on drift, and the pin is regenerated only from a
+   reviewed asgard-rooms head, never by hand. Gateway-size provenance is
    a separate generated evidence artifact, not a parser fixture.
 3. v3 nested `from`, optional entry/member fields, `revision`, and mixed tombstones
-   parse without crashing; malformed room objects without an array `log` are
-   dropped. Malformed `at` normalizes deterministically (missing, null,
-   non-numeric, boolean `false`, negative, non-finite, and out-of-Long → `0L`;
-   boolean `true` → `1L`; JavaScript numeric strings such as `"0x10"` parse).
+   parse without crashing; **normalization keeps v3 rooms verbatim — a room whose
+   `log` is missing or not an array is retained as-is, not dropped** (pinned by
+   `v3-malformed.json`); pre-v3 normalization drops name-keyed rooms without an
+   array `log`. Malformed `at` normalizes deterministically (missing, null,
+   non-numeric, boolean `false`, negative, non-finite, and at-or-above the
+   IEEE-754 `2^63` boundary → `0L`; boolean `true` → `1L`; JavaScript numeric
+   strings such as `"0x10"` parse; in-range decimals keep their nearest-double
+   value, e.g. `2^53+1` → `9007199254740992`).
 4. Snapshot-absent rooms survive in cache; only matching tombstones delete them;
    stale tombstones are dropped.
 5. Only member `@user` mentions badge; user/system entries, pre-window entries, and

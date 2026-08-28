@@ -46,10 +46,25 @@ object RoomMirrorParser {
         val roomsBuilder = LinkedHashMap<String, Pair<String, Room>>()
         envelope.rooms.forEach { (key, element) ->
             val roomObject = element as? JsonObject ?: return@forEach
-            if (roomObject["log"] !is JsonArray) return@forEach
+            val logIsArray = roomObject["log"] is JsonArray
+            // Malformed-room drop is a pre-v3-only cleanup: for v3 the Desktop
+            // projection is trusted verbatim (plugin.js L367-376 returns rooms
+            // unchanged), so a v3 room whose log is missing or not an array is
+            // KEPT and decodes with an empty log (witnessed by v3-malformed.json).
+            if (legacy && !logIsArray) return@forEach
             val room =
-                runCatching { json.decodeFromJsonElement(Room.serializer(), roomObject) }
-                    .getOrNull() ?: return@forEach
+                runCatching {
+                    // A non-array/missing log cannot decode into List<LogEntry>;
+                    // on the v3 passthrough path drop just that field (the Room
+                    // model then holds an empty log) instead of the whole room.
+                    val decodeSource =
+                        if (logIsArray) {
+                            roomObject
+                        } else {
+                            JsonObject(roomObject.toMutableMap().apply { remove("log") })
+                        }
+                    json.decodeFromJsonElement(Room.serializer(), decodeSource)
+                }.getOrNull() ?: return@forEach
             val sourceKey = if (legacy) "name:$key" else key
             val normalizedKey = if (legacy) sourceKey else roomIdentity(sourceKey, room)
             val displayName = if (legacy) key else room.name ?: sourceKey.removePrefix("name:")
@@ -59,7 +74,17 @@ object RoomMirrorParser {
             envelope.deleted
                 .mapKeys { (key, _) -> if (legacy) "name:$key" else key } // desktop lifts legacy tombstone keys too
                 .mapValues { (_, rev) ->
-                    if (declaredVersion < 2) 0L else rev.coerceAtLeast(0L)
+                    // Negative-revision clamp is likewise pre-v3 only: v3
+                    // tombstones pass through verbatim, and the id: rule in
+                    // Tombstones.apply deletes unconditionally regardless of
+                    // sign, so -9 still final-deletes (witnessed by v3-malformed.json).
+                    if (declaredVersion < 2) {
+                        0L
+                    } else if (legacy) {
+                        rev.coerceAtLeast(0L)
+                    } else {
+                        rev
+                    }
                 }
         return NormalizedSnapshot(declaredVersion, roomsBuilder.toMap(), deleted)
     }

@@ -2,9 +2,12 @@ package com.m57.hermescontrol.data.rooms
 
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -91,6 +94,32 @@ class RoomMirrorParserTest {
 
         assertEquals(oracleBoundary, guardBoundary)
         assertEquals(0L, AtNormalizer.normalize(JsonPrimitive(oracleBoundary)))
+    }
+
+    @Test
+    fun `ieee-754 witnesses from 2^53 to 2^63 keep nearest-double value, boundary and beyond clamp to 0`() {
+        // Witness set pinned by the asgard-rooms oracle (at-normalization.json
+        // entries 16-19): 2^53+1 rounds down to the 2^53 double, 2^53+3 rounds
+        // up to the 2^53+4 double, 2^62+1 rounds to the 2^62 double, and the
+        // largest double below 2^63 (minus 1) stays exact — all four are valid
+        // Kotlin Longs kept as their nearest IEEE-754 double. Entries 21-23 pin
+        // the boundary itself: 2^63 and Long.MAX_VALUE clamp to 0 while the
+        // largest double below 2^63 survives, so an outlier can never saturate
+        // a read watermark.
+        val keptCases =
+            listOf(
+                JsonPrimitive("9007199254740993"), // 2^53+1 -> 9007199254740992 (rounds down)
+                JsonPrimitive("9007199254740995"), // 2^53+3 -> 9007199254740996 (rounds up)
+                JsonPrimitive("4611686018427387905"), // 2^62+1 -> 4611686018427387904
+                JsonPrimitive("9223372036854774785"), // largest double < 2^63, minus 1 -> ...784
+            )
+        val oracleKept =
+            listOf(9007199254740992L, 9007199254740996L, 4611686018427387904L, 9223372036854774784L)
+        assertEquals(oracleKept, keptCases.map(AtNormalizer::normalize))
+
+        assertEquals(0L, AtNormalizer.normalize(JsonPrimitive("9223372036854775808"))) // 2^63
+        assertEquals(0L, AtNormalizer.normalize(JsonPrimitive("9223372036854775807"))) // Long.MAX_VALUE
+        assertEquals(9223372036854774784L, AtNormalizer.normalize(JsonPrimitive("9223372036854774784")))
     }
 
     @Test
@@ -476,12 +505,12 @@ class RoomMirrorParserTest {
     }
 
     @Test
-    fun `rooms without array logs are skipped rather than cached as empty`() {
-        val raw =
+    fun `v3 keeps rooms without array logs while pre-v3 drops them`() {
+        fun rawFor(version: Int) =
             json.parseToJsonElement(
                 """
                 {
-                  "version": 3,
+                  "version": $version,
                   "rooms": {
                     "id:missing": {"name": "missing", "roomId": "missing"},
                     "id:null": {"name": "null", "roomId": "null", "log": null},
@@ -493,9 +522,145 @@ class RoomMirrorParserTest {
                 """.trimIndent(),
             )
 
-        val snapshot = RoomMirrorParser.parse(raw)
+        // v3 is verbatim passthrough: rooms whose log is missing/null/an object
+        // survive normalization and decode with an empty log.
+        val v3 = RoomMirrorParser.parse(rawFor(3))
+        assertEquals(setOf("id:missing", "id:null", "id:object", "id:good"), v3.rooms.keys)
+        listOf("id:missing", "id:null", "id:object").forEach { key ->
+            assertEquals(0, v3.rooms.getValue(key).second.log.size)
+        }
 
-        assertEquals(setOf("id:good"), snapshot.rooms.keys)
+        // The pre-v3 cleanup still skips those rooms rather than caching them
+        // as empty (keys lift to the `name:` identity domain).
+        val v2 = RoomMirrorParser.parse(rawFor(2))
+        assertEquals(setOf("name:id:good"), v2.rooms.keys)
+    }
+
+    @Test
+    fun `v3 malformed fixture matches oracle - passthrough keeps malformed room, id tombstone final-deletes`() {
+        val snapshot = RoomMirrorParser.parse(obj("v3-malformed.json"))
+        val exp = expectedFor("v3-malformed")
+
+        // v3 is verbatim passthrough: BOTH rooms survive normalization — the
+        // log-not-an-array room is kept (logIsArray=false witness, decodes with
+        // an empty log and its stale inner name) and the negative tombstone
+        // revision passes through unclamped.
+        assertEquals(
+            exp["roomKeysAfterNormalize"]!!.jsonArray.map { (it as JsonPrimitive).content }.toSet(),
+            snapshot.rooms.keys,
+        )
+        assertEquals(
+            exp["tombstoneKeysAfterNormalize"]!!.jsonObject.entries.associate {
+                it.key to (it.value as JsonPrimitive).content.toLong()
+            },
+            snapshot.deleted,
+        )
+        assertEquals(-9L, snapshot.deleted.getValue("id:rmfixt041-negdel"))
+        // Stale inner name is NOT replaced by the map key on the v3 path.
+        assertEquals("stale-inner-name", snapshot.rooms.getValue("id:rmfixt040-malfrm").second.name)
+        assertEquals(0, snapshot.rooms.getValue("id:rmfixt040-malfrm").second.log.size)
+        assertEquals(4L, snapshot.rooms.getValue("id:rmfixt040-malfrm").second.revision)
+
+        // roomKeysSurviving is the cache-walk outcome, not parsing: the id:
+        // tombstone final-deletes the second room in the merge despite rev -9.
+        val outcome = RoomCacheOps.merge(RoomCacheOps.State(), snapshot, nowMs = 1L)
+        assertEquals(
+            exp["roomKeysSurviving"]!!.jsonArray.map { (it as JsonPrimitive).content }.toSet(),
+            outcome.state.rooms.keys,
+        )
+    }
+
+    @Test
+    fun `logIsArray oracle column matches parser acceptance per fixture`() {
+        // Consume the logIsArray witness for every fixture against the actual
+        // parser output: pre-v3 snapshots drop rooms whose log is not an array,
+        // while v3 normalization is verbatim passthrough, so every room object
+        // survives parsing regardless of logIsArray (deletion happens in the
+        // cache walk, never during parsing).
+        expected().forEach { entry ->
+            val file = entry["file"]!!.jsonPrimitive.content
+            val snapshot = RoomMirrorParser.parse(obj(file))
+            val parsedKeys = snapshot.rooms.keys
+            if (entry["declaredVersion"]!!.jsonPrimitive.int < 3) {
+                entry["rooms"]!!.jsonObject.forEach { (key, roomExp) ->
+                    val logIsArray = roomExp.jsonObject["logIsArray"]!!.jsonPrimitive.boolean
+                    assertEquals("pre-v3 acceptance of $key in $file", logIsArray, key in parsedKeys)
+                }
+            } else {
+                assertEquals(
+                    "v3 passthrough keeps every room object in $file",
+                    entry["roomKeysAfterNormalize"]!!.jsonArray.map { (it as JsonPrimitive).content }.toSet(),
+                    parsedKeys,
+                )
+            }
+        }
+    }
+
+    @Test
+    fun `mobile oracle view matches derived display order, badges, and watermark rules per fixture`() {
+        // Consume the remaining mobile oracle columns for every surviving room:
+        // displayOrder (normalized at, array-order tiebreak), newestAt and
+        // watermarkAfterOpen (max(0, newest, 1) in the entry-timestamp domain),
+        // badgeNeverOpened / badgeOpenedBeforeWindow / badgeOpenedAtNewest, and
+        // mentionEntryIndexes. Parity here is what makes EXPECTED.json's mobile
+        // section a consumed oracle rather than dead weight.
+        expected().forEach { entry ->
+            val fixtureName = entry["file"]!!.jsonPrimitive.content
+            val snapshot = RoomMirrorParser.parse(json.parseToJsonElement(fixture(fixtureName)))
+            entry["rooms"]!!.jsonObject.forEach { (key, roomExp) ->
+                val mobile = roomExp.jsonObject["mobile"]!!.jsonObject
+                val room = snapshot.rooms[key]?.second ?: return@forEach
+                val log = room.log
+                val normalized = mobile["normalizedAt"]!!.jsonArray.map { (it as JsonPrimitive).content.toLong() }
+                assertEquals("normalizedAt column for $key", normalized, log.map { it.normalizedAt })
+
+                val displayOrder = mobile["displayOrder"]!!.jsonArray.map { (it as JsonPrimitive).content.toInt() }
+                assertEquals("displayOrder for $key", displayOrder, RoomAnalysis.sortEntriesByNormalizedAt(log))
+
+                if (log.isEmpty()) return@forEach
+
+                val newestAt = mobile["newestAt"]!!.jsonPrimitive.content.toLong()
+                assertEquals("newestAt for $key", newestAt, log.maxOf { it.normalizedAt })
+
+                val watermarkAfterOpen = mobile["watermarkAfterOpen"]!!.jsonPrimitive.content.toLong()
+                assertEquals(
+                    "watermarkAfterOpen = max(0, newest, 1) for $key",
+                    watermarkAfterOpen,
+                    maxOf(0L, log.maxOf { it.normalizedAt }, 1L),
+                )
+
+                val oldestAt = mobile["oldestAt"]!!.jsonPrimitive.content.toLong()
+                assertEquals(
+                    "badgeNeverOpened for $key",
+                    mobile["badgeNeverOpened"]!!.jsonPrimitive.boolean,
+                    UnreadBadge.anyMention(log, 0L),
+                )
+                assertEquals(
+                    "badgeOpenedBeforeWindow for $key",
+                    mobile["badgeOpenedBeforeWindow"]!!.jsonPrimitive.boolean,
+                    UnreadBadge.anyMention(log, oldestAt - 1L),
+                )
+                assertEquals(
+                    "badgeOpenedAtNewest for $key",
+                    mobile["badgeOpenedAtNewest"]!!.jsonPrimitive.boolean,
+                    UnreadBadge.anyMention(log, newestAt),
+                )
+
+                val mentionIndexes =
+                    mobile["mentionEntryIndexes"]!!.jsonArray.map { (it as JsonPrimitive).content.toInt() }
+                assertEquals(
+                    "mentionEntryIndexes for $key",
+                    mentionIndexes,
+                    log.withIndex().filter {
+                            (_, e) ->
+                        UnreadBadge.MENTION.containsMatchIn((e.text ?: "")) && e.isMember
+                    }.map {
+                            (i, _) ->
+                        i
+                    },
+                )
+            }
+        }
     }
 
     @Test

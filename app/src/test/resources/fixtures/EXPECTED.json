@@ -36,6 +36,7 @@
         "displayName": "alpha",
         "revision": 12,
         "surviving": true,
+        "logIsArray": true,
         "entries": 3,
         "members": 2,
         "entriesMissingId": 0,
@@ -95,6 +96,7 @@
         "displayName": "beta",
         "revision": 5,
         "surviving": true,
+        "logIsArray": true,
         "entries": 1,
         "members": 1,
         "entriesMissingId": 0,
@@ -138,6 +140,122 @@
     }
   },
   {
+    "file": "v3-malformed.json",
+    "declaredVersion": 3,
+    "normalizedVersion": 3,
+    "gatewayBytes": 1409,
+    "longStorageBoundary": "9223372036854775808",
+    "roomKeysAfterNormalize": [
+      "id:rmfixt040-malfrm",
+      "id:rmfixt041-negdel"
+    ],
+    "tombstoneKeysAfterNormalize": {
+      "id:rmfixt041-negdel": -9
+    },
+    "tombstoneActions": [
+      {
+        "key": "id:rmfixt041-negdel",
+        "rule": "id: final delete (L616)",
+        "deletedRoom": true,
+        "tombstoneKept": true
+      }
+    ],
+    "roomKeysSurviving": [
+      "id:rmfixt040-malfrm"
+    ],
+    "rooms": {
+      "id:rmfixt040-malfrm": {
+        "displayName": "stale-inner-name",
+        "revision": 4,
+        "surviving": true,
+        "logIsArray": false,
+        "entries": 0,
+        "members": 1,
+        "entriesMissingId": 0,
+        "normalizedAt": [],
+        "normalizedAtMobileLong": [],
+        "newestAt": 0,
+        "oldestAt": 0,
+        "sortOrderByEntryKey": [],
+        "mentionEntryIndexes": [],
+        "badgeNeverOpened": false,
+        "badgeOpenedBeforeWindow": false,
+        "badgeOpenedAtNewest": false,
+        "mentionsUnreachableWhenOpened": [],
+        "mobile": {
+          "normalizedAt": [],
+          "oldestAt": "0",
+          "newestAt": "0",
+          "displayOrder": [],
+          "mentionEntryIndexes": [],
+          "mentionsUnreachableWhenOpened": [],
+          "badgeNeverOpened": false,
+          "badgeOpenedBeforeWindow": false,
+          "badgeOpenedAtNewest": false,
+          "hasHistoryGapWhenNeverOpened": false,
+          "watermarkAfterOpen": "1"
+        },
+        "memberKeys": [
+          "[\"\",\"\",\"\",\"bot-one\",\"bot-one\"]"
+        ]
+      },
+      "id:rmfixt041-negdel": {
+        "displayName": "negative-tombstone-target",
+        "revision": 2,
+        "surviving": false,
+        "logIsArray": true,
+        "entries": 2,
+        "members": 1,
+        "entriesMissingId": 0,
+        "normalizedAt": [
+          1787737460000,
+          1787737461000
+        ],
+        "normalizedAtMobileLong": [
+          "1787737460000",
+          "1787737461000"
+        ],
+        "newestAt": 1787737461000,
+        "oldestAt": 1787737460000,
+        "sortOrderByEntryKey": [
+          "id:44414441-4441-4441-8441-444144414441",
+          "id:44414442-4442-4442-8442-444244424442"
+        ],
+        "mentionEntryIndexes": [
+          1
+        ],
+        "badgeNeverOpened": true,
+        "badgeOpenedBeforeWindow": true,
+        "badgeOpenedAtNewest": false,
+        "mentionsUnreachableWhenOpened": [],
+        "mobile": {
+          "normalizedAt": [
+            "1787737460000",
+            "1787737461000"
+          ],
+          "oldestAt": "1787737460000",
+          "newestAt": "1787737461000",
+          "displayOrder": [
+            0,
+            1
+          ],
+          "mentionEntryIndexes": [
+            1
+          ],
+          "mentionsUnreachableWhenOpened": [],
+          "badgeNeverOpened": true,
+          "badgeOpenedBeforeWindow": true,
+          "badgeOpenedAtNewest": false,
+          "hasHistoryGapWhenNeverOpened": true,
+          "watermarkAfterOpen": "1787737461000"
+        },
+        "memberKeys": [
+          "[\"\",\"\",\"\",\"bot-two\",\"bot-two\"]"
+        ]
+      }
+    }
+  },
+  {
     "file": "v3-capped-room-evicted/02-before.json",
     "declaredVersion": 3,
     "normalizedVersion": 3,
@@ -160,6 +278,7 @@
         "displayName": "hot",
         "revision": 30,
         "surviving": true,
+        "logIsArray": true,
         "entries": 1,
         "members": 1,
         "entriesMissingId": 0,
@@ -204,6 +323,7 @@
         "displayName": "warm",
         "revision": 22,
         "surviving": true,
+        "logIsArray": true,
         "entries": 1,
         "members": 1,
         "entriesMissingId": 0,
@@ -252,6 +372,7 @@
         "displayName": "gamma",
         "revision": 7,
         "surviving": true,
+        "logIsArray": true,
         "entries": 1,
         "members": 1,
         "entriesMissingId": 0,
@@ -326,6 +447,7 @@
         "displayName": "hot",
         "revision": 31,
         "surviving": true,
+        "logIsArray": true,
         "entries": 2,
         "members": 1,
         "entriesMissingId": 0,
@@ -407,6 +529,7 @@
         "displayName": "hot",
         "revision": 32,
         "surviving": true,
+        "logIsArray": true,
         "entries": 2,
         "members": 1,
         "entriesMissingId": 0,
@@ -460,6 +583,7 @@
         "displayName": "gamma",
         "revision": 7,
         "surviving": true,
+        "logIsArray": true,
         "entries": 1,
         "members": 1,
         "entriesMissingId": 0,
@@ -546,6 +670,7 @@
         "displayName": "oldroom",
         "revision": 3,
         "surviving": true,
+        "logIsArray": true,
         "entries": 2,
         "members": 1,
         "entriesMissingId": 0,
@@ -599,6 +724,7 @@
         "displayName": "stale-tomb",
         "revision": 10,
         "surviving": true,
+        "logIsArray": true,
         "entries": 1,
         "members": 1,
         "entriesMissingId": 0,
@@ -643,6 +769,7 @@
         "displayName": "ripe-tomb",
         "revision": 4,
         "surviving": false,
+        "logIsArray": true,
         "entries": 1,
         "members": 1,
         "entriesMissingId": 0,
@@ -687,6 +814,7 @@
         "displayName": "modern",
         "revision": 2,
         "surviving": true,
+        "logIsArray": true,
         "entries": 1,
         "members": 1,
         "entriesMissingId": 0,
@@ -733,7 +861,7 @@
     "file": "at-normalization.json",
     "declaredVersion": 3,
     "normalizedVersion": 3,
-    "gatewayBytes": 8385,
+    "gatewayBytes": 10627,
     "longStorageBoundary": "9223372036854775808",
     "roomKeysAfterNormalize": [
       "id:rmfixt030-atnorm"
@@ -748,7 +876,8 @@
         "displayName": "at-normalization",
         "revision": 1,
         "surviving": true,
-        "entries": 23,
+        "logIsArray": true,
+        "entries": 27,
         "members": 1,
         "entriesMissingId": 1,
         "normalizedAt": [
@@ -768,6 +897,10 @@
           1787737580000,
           1787737590000,
           0,
+          9007199254740992,
+          9007199254740996,
+          4611686018427388000,
+          9223372036854775000,
           1.7976931348623157e+308,
           9223372036854776000,
           9223372036854776000,
@@ -793,6 +926,10 @@
           "1787737580000",
           "1787737590000",
           "0",
+          "9007199254740992",
+          "9007199254740996",
+          "4611686018427387904",
+          "9223372036854774784",
           "0",
           "0",
           "0",
@@ -823,7 +960,11 @@
           "id:ccccccc1-0000-4000-8000-00000000000c",
           "id:ccccccc1-0000-4000-8000-00000000000d",
           "id:ccccccc1-0000-4000-8000-00000000000e",
+          "id:ccccccc1-0000-4000-8000-000000000020",
+          "id:ccccccc1-0000-4000-8000-000000000021",
+          "id:ccccccc1-0000-4000-8000-000000000022",
           "id:ccccccc1-0000-4000-8000-000000000016",
+          "id:ccccccc1-0000-4000-8000-000000000023",
           "id:ccccccc1-0000-4000-8000-000000000014",
           "id:ccccccc1-0000-4000-8000-000000000015",
           "id:ccccccc1-0000-4000-8000-000000000011"
@@ -833,7 +974,7 @@
           2,
           8,
           13,
-          17
+          21
         ],
         "badgeNeverOpened": true,
         "badgeOpenedBeforeWindow": true,
@@ -860,6 +1001,10 @@
             "1787737580000",
             "1787737590000",
             "0",
+            "9007199254740992",
+            "9007199254740996",
+            "4611686018427387904",
+            "9223372036854774784",
             "0",
             "0",
             "0",
@@ -877,13 +1022,13 @@
             3,
             6,
             15,
-            16,
-            17,
-            18,
+            20,
             21,
             22,
+            25,
+            26,
             5,
-            20,
+            24,
             4,
             7,
             8,
@@ -893,19 +1038,23 @@
             12,
             13,
             14,
-            19
+            16,
+            17,
+            18,
+            19,
+            23
           ],
           "mentionEntryIndexes": [
             0,
             2,
             8,
             13,
-            17
+            21
           ],
           "mentionsUnreachableWhenOpened": [
             0,
             2,
-            17
+            21
           ],
           "badgeNeverOpened": true,
           "badgeOpenedBeforeWindow": true,
@@ -949,6 +1098,7 @@
         "displayName": "alpha-v2",
         "revision": 3,
         "surviving": true,
+        "logIsArray": true,
         "entries": 2,
         "members": 1,
         "entriesMissingId": 2,
@@ -1002,6 +1152,7 @@
         "displayName": "beta-v2",
         "revision": 1,
         "surviving": true,
+        "logIsArray": true,
         "entries": 1,
         "members": 0,
         "entriesMissingId": 1,
@@ -1070,6 +1221,7 @@
         "displayName": "alpha-v1",
         "revision": 2,
         "surviving": true,
+        "logIsArray": true,
         "entries": 1,
         "members": 1,
         "entriesMissingId": 1,
