@@ -21,6 +21,8 @@ ktlint
 
 # Local workspace artifacts and logs
 *.py
+# Committed tooling must survive the blanket *.py rule
+!tools/**/*.py
 .kotlin/
 *.db
 
