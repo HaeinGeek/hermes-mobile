@@ -2,6 +2,11 @@
 
 ## Source of truth
 
+- **Status:** Draft — implementation must wait for approval of the navigation
+  recommendation and the open sequencing questions.
+- **Last updated:** 2026-08-28.
+- **Product surfaces:** Android phone and adaptive Android layouts for Chat,
+  Kanban, Bots, Files, and secondary management tools.
 - This document is the product and UI contract for the first focused mobile UX
   refresh: primary navigation, Chat information architecture, bot selection, and
   Files legibility/search.
@@ -19,9 +24,11 @@
   windows, while
   [adaptive navigation](https://developer.android.com/develop/adaptive-apps/guides/build-adaptive-navigation)
   uses a rail on larger windows.
-- This file is intentionally a design draft. The selected navigation direction is
-  ready for implementation; unresolved product decisions are listed under Open
-  questions and must not be guessed during implementation.
+- This file separates user-requested goals from design recommendations. The five
+  destination structure is requested; the bottom navigation bar is recommended
+  over a revised drawer and remains subject to product approval. Unresolved
+  decisions are listed under Open questions and must not be guessed during
+  implementation.
 
 ## Brand
 
@@ -35,6 +42,33 @@ states—while retaining Hermes-specific workflows such as bot configuration,
 Kanban, files, and gateway status.
 
 ## Product goals
+
+### Phase 1 design target
+
+Phase 1 is a focused redesign of the mobile core loop, not a full-app visual
+rewrite. The target agreed for discussion is:
+
+- Primary destinations: `Chat · Kanban · Bots · Files · More`.
+- Chat owns both session history and Rooms. It opens on history by default; `+`
+  starts a new chat.
+- Chat exposes bot selection without reassigning an existing session to a different
+  bot.
+- Files improves scanability and adds search.
+- Terminal support is excluded.
+- Navigation presentation—bottom tabs versus an improved drawer—must be decided
+  from a draft before implementation. This document recommends bottom tabs.
+
+Discussion record, 2026-08-28:
+
+| Topic | User direction | Design interpretation | Status |
+| --- | --- | --- | --- |
+| Primary navigation | Chat, Kanban, Bots, Files, More | Five equal-priority top-level destinations | Requested |
+| Chat organization | Include Rooms and History; show history first; use `+` for new chat | Chat Home with `Chats / Rooms`, recent sessions as default, and a new-chat action | Requested; detailed interaction proposed |
+| Navigation control | Compare tabs with an improved drawer before proceeding | Bottom bar on phones, rail on larger screens, secondary tools in More | Recommended; approval pending |
+| Bot selection | Bot-selection tabs in chat sessions | Visible bot selector; switching bots starts a fresh scoped session rather than mutating the current one | Requested; safety behavior derived from current data model |
+| Files | Improve visibility and add search | Clearer rows/breadcrumbs plus current-folder filtering in phase 1 | Requested; search scope constrained by current API |
+
+### Goals
 
 1. Put the five daily destinations—Chat, Kanban, Bots, Files, More—one tap away.
 2. Make Chat open on a useful conversation index instead of an empty composer.
@@ -54,6 +88,14 @@ Initial success criteria:
 - Current-directory file search is available immediately on the Files screen.
 - No existing management screen becomes unreachable.
 - Existing profile, session, and room semantics remain intact.
+
+### Non-goals
+
+- Terminal implementation.
+- A visual redesign of every existing management screen.
+- Writable Rooms or changes to the phase-1 Room mirror contract.
+- Recursive/global file search without an explicit backend API.
+- A Kanban mobile-layout redesign in the same implementation slice.
 
 ## Personas and jobs
 
@@ -77,6 +119,28 @@ Initial success criteria:
   simpler daily interface.
 
 ## Information architecture
+
+### App shell and More
+
+The **app shell** is not a separate destination or user feature. It is the common
+outer frame around the five top-level screens. It owns:
+
+- the bottom navigation bar on phones and navigation rail on larger layouts;
+- which top-level destination is selected;
+- top-level back-stack and per-destination state restoration;
+- system insets and placement of shared connection status;
+- showing primary navigation on top-level screens and hiding it on drill-down
+  screens such as chat detail, room detail, and editors.
+
+`HermesScaffold` remains the inner screen scaffold that owns each screen's app bar,
+refresh behavior, snackbar, and content. The app shell sits outside it; it is not a
+replacement screen and must not create nested scaffolds.
+
+**More** is the fifth top-level destination rendered inside that shell. It is a
+normal searchable screen containing the existing lower-frequency destinations now
+listed in the drawer. It is not a hamburger menu, a generic overflow menu for the
+current screen, or a place where features disappear. Every moved destination must
+remain named, searchable, and directly navigable.
 
 ### Navigation decision
 
@@ -443,6 +507,9 @@ Suggested implementation slices:
 
 ## Open questions
 
+- [ ] Approve the recommended phone navigation: five-item bottom bar instead of an
+  improved global drawer. Owner: product. Impact: app-shell architecture and the
+  first implementation slice.
 - [ ] Confirm whether the first implementation should ship Chat Home without Rooms
   while the room parser/cache PR is still pending, or wait and ship both together.
   Owner: product. Impact: sequencing and PR size.
