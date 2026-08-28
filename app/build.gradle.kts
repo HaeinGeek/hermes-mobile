@@ -1,5 +1,4 @@
 import org.gradle.api.tasks.testing.Test
-import java.security.MessageDigest
 
 plugins {
     alias(libs.plugins.android.application)
@@ -8,6 +7,24 @@ plugins {
     alias(libs.plugins.room)
     alias(libs.plugins.ksp)
 }
+
+// Fixture files mirrored from HaeinGeek/asgard-rooms (kept in lockstep with
+// tools/roomfixtures/verify_fixture_sync.py — the authoritative list lives
+// there; this copy backs the unpinned-file check of checkFixtureParity).
+val COPIED_FIXTURES = setOf(
+    "EXPECTED-cache-walk.json",
+    "EXPECTED.json",
+    "GATEWAY-SIZE-EVIDENCE.json",
+    "at-normalization.json",
+    "legacy-name-key.json",
+    "legacy-v1.json",
+    "legacy-v2.json",
+    "v3-capped-room-evicted/02-before.json",
+    "v3-capped-room-evicted/03-after.json",
+    "v3-capped-room-evicted/04-gamma-returns.json",
+    "v3-malformed.json",
+    "v3-normal.json",
+)
 
 android {
     namespace = "com.m57.hermescontrol"
@@ -293,81 +310,56 @@ tasks.named("check") {
     dependsOn("checkColorLiterals")
 }
 
-// Fixture parity gate: fails the build when the shared room-view fixtures
-// drift from the pinned asgard-rooms oracle. The pin lives in
-// app/src/test/resources/fixtures/fixture-set.sha256; regenerate it only from
-// a reviewed asgard-rooms head (never by hand).
+// ── Fixture parity gate ───────────────────────────────────────────────────
+// Fails the build when the shared room-view fixtures drift from the pinned
+// asgard-rooms oracle. The mobile fixture copy under
+// app/src/test/resources/fixtures/ is verified by the committed deterministic
+// verifier tools/roomfixtures/verify_fixture_sync.py, which
+//   1. checks every copied fixture byte-identical against the upstream
+//      asgard-rooms fixture-set.sha256 embedded in sync-info.json, and
+//   2. regenerates the mobile fixture-set.sha256 manifest and byte-compares
+//      it with the committed one — so the pin itself is derived from the
+//      upstream pin + source commit, never hand-typed.
+// Regenerate the manifest only via `verify_fixture_sync.py write` after
+// syncing from a reviewed asgard-rooms head.
 tasks.register("checkFixtureParity") {
     group = "verification"
-    description = "Fails when test fixtures drift from the pinned asgard-rooms oracle."
+    description = "Fails when test fixtures or the pin manifest drift from the pinned asgard-rooms oracle."
 
-    val fixturesDir = layout.projectDirectory.dir("src/test/resources/fixtures")
+    // Configuration-cache-safe: capture plain strings resolved at configuration time.
+    val verifierPath = rootProject.projectDir.resolve("tools/roomfixtures/verify_fixture_sync.py").absolutePath
+    val fixturesDirPath = layout.projectDirectory.dir("src/test/resources/fixtures").asFile.absolutePath
+    val workDir = rootProject.projectDir.absolutePath
+    val copiedFixtures = COPIED_FIXTURES.toSet()
 
     doLast {
-        val pinFile = File(fixturesDir.asFile, "fixture-set.sha256")
-        if (!pinFile.isFile) {
-            throw GradleException("fixture-set.sha256 missing at ${pinFile.absolutePath}")
+        val verifierFile = File(verifierPath)
+        if (!verifierFile.isFile) {
+            throw GradleException("fixture sync verifier missing at $verifierPath")
         }
-
-        data class Entry(val hash: String, val name: String)
-
-        val pinned = mutableListOf<Entry>()
-        pinFile.readLines().forEach { raw ->
-            val line = raw.trim()
-            if (line.isEmpty() || line.startsWith("#")) return@forEach
-            val parts = line.split(Regex("\\s+"), limit = 2)
-            if (parts.size != 2) throw GradleException("unparseable pin line: $line")
-            val (hash, rawName) = parts
-            val name = rawName.trimStart('*')
-            val hex = hash.lowercase()
-            if (hex.length != 64 || hex.any { it !in '0'..'9' && it !in 'a'..'f' }) {
-                throw GradleException("pin hash is not sha256 hex: $line")
-            }
-            pinned += Entry(hex, name)
+        val proc = ProcessBuilder("python3", verifierPath, "check")
+            .directory(File(workDir))
+            .redirectErrorStream(true)
+            .start()
+        val out = proc.inputStream.bufferedReader().readText()
+        val code = proc.waitFor()
+        logger.lifecycle(out.trim())
+        if (code != 0) {
+            throw GradleException(
+                "checkFixtureParity failed (exit $code). Fixtures or the pin manifest drifted\n" +
+                    "from the pinned asgard-rooms oracle — see the verifier output above. Sync all\n" +
+                    "copied fixtures from the reviewed upstream head and regenerate the manifest\n" +
+                    "with tools/roomfixtures/verify_fixture_sync.py write; never edit by hand.",
+            )
         }
-        if (pinned.isEmpty()) throw GradleException("fixture-set.sha256 pins no files")
-
-        val missing = mutableListOf<String>()
-        pinned.forEach { entry ->
-            val file = File(fixturesDir.asFile, entry.name)
-            if (!file.isFile) {
-                missing += entry.name
-                return@forEach
-            }
-            val actual = file.inputStream().use { input ->
-                val digest = MessageDigest.getInstance("SHA-256")!!
-                val buffer = ByteArray(64 * 1024)
-                while (true) {
-                    val read = input.read(buffer)
-                    if (read < 0) break
-                    digest.update(buffer, 0, read)
-                }
-                digest.digest().joinToString("") { byte -> "%02x".format(byte) }
-            }
-            if (actual != entry.hash) {
-                throw GradleException(
-                    "fixture '${entry.name}' drifted from the pinned oracle.\n" +
-                        "  pin:    ${entry.hash}\n" +
-                        "  actual: $actual\n" +
-                        "Sync all pinned fixtures from the reviewed asgard-rooms head and " +
-                        "regenerate the pin; never edit fixtures to force a pass.",
-                )
-            }
-        }
-        if (missing.isNotEmpty()) throw GradleException("pinned fixtures missing: $missing")
-
-        // A pin that silently stops covering the fixture set is a vacuous gate:
-        // every fixture file must be pinned on purpose.
-        val pinnedNames = pinned.map { it.name }.toSet()
-        val unpinned =
-            fixturesDir.asFile.walkTopDown()
-                .filter { it.isFile && it != pinFile }
-                .filterNot { it.relativeTo(fixturesDir.asFile).path in pinnedNames }
-                .map { it.relativeTo(fixturesDir.asFile).path }
-                .toList()
-        if (unpinned.isNotEmpty()) throw GradleException("fixtures present but not pinned: $unpinned")
-
-        logger.lifecycle("checkFixtureParity: ${pinned.size} files match the pinned oracle ✅")
+        val fixturesDir = File(fixturesDirPath)
+        val unpinned = fixturesDir.walkTopDown()
+            .filter { it.isFile && it.name != "fixture-set.sha256" }
+            .filterNot { it.relativeTo(fixturesDir).path in copiedFixtures }
+            .map { it.relativeTo(fixturesDir).path }
+            .toList()
+        if (unpinned.isNotEmpty()) throw GradleException("fixtures present but not covered by the sync verifier: $unpinned")
+        logger.lifecycle("checkFixtureParity: fixture copy + derived pin manifest verified ✅")
     }
 }
 

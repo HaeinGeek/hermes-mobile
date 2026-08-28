@@ -74,9 +74,13 @@ holds and nothing more.
 - The gateway estimator charges 6 bytes per non-ASCII BMP codepoint versus its
   3-byte UTF-8 representation, so Korean-heavy mirrors consume the 48 KB budget
   faster than ASCII-heavy mirrors. This is source-derived, not a live-window
-  estimate: `asgard-rooms` PR #2 runs the extracted Desktop
-  `groupChatGatewayJsonSize` and records the cap-crossing thresholds in
-  `tests/fixtures/GATEWAY-SIZE-EVIDENCE.json`.
+  estimate: `asgard-rooms` runs the extracted Desktop `groupChatGatewayJsonSize`
+  and records the cap-crossing thresholds in
+  `tests/fixtures/GATEWAY-SIZE-EVIDENCE.json`, mirrored byte-for-byte into this
+  repo (pinned like every other copied fixture). The JVM estimator port lives in
+  `GatewaySizeEstimator` and `GatewaySizeEstimatorTest` asserts it against every
+  committed case of that artifact, so estimator and evidence cannot drift
+  apart silently.
 
 ## Normalization and identity
 
@@ -207,16 +211,21 @@ prerequisite (parser/watcher stay deferred backlog).
 1. Room data source is WS `profiles.list({"include_sessions":false})`; REST
    `getProfiles()` is not used for room data.
 2. Parser/cache tests pass against the fixture set pinned from
-   `HaeinGeek/asgard-rooms` PR #4 (head `eae33c7d`): **9 snapshot fixtures** —
+   `HaeinGeek/asgard-rooms` PR #4: **9 snapshot fixtures** —
    `v3-normal.json`, `v3-malformed.json`,
    `v3-capped-room-evicted/{02-before,03-after,04-gamma-returns}.json`,
    `legacy-name-key.json`, `at-normalization.json`, `legacy-v1.json`, and
    `legacy-v2.json` — asserted against `EXPECTED.json` and
-   `EXPECTED-cache-walk.json` (Desktop-derived oracle). `fixture-set.sha256`
-   pins every fixture byte-for-byte; `./gradlew checkFixtureParity` (part of
-   `check`) fails the build on drift, and the pin is regenerated only from a
-   reviewed asgard-rooms head, never by hand. Gateway-size provenance is
-   a separate generated evidence artifact, not a parser fixture.
+   `EXPECTED-cache-walk.json` (Desktop-derived oracle). The copied fixtures
+   plus the mirrored `GATEWAY-SIZE-EVIDENCE.json` are verified and pinned by
+   `tools/roomfixtures/verify_fixture_sync.py`: every copied file is checked
+   byte-identical against the upstream `fixture-set.sha256` embedded in
+   `tools/roomfixtures/sync-info.json`, and the mobile
+   `fixture-set.sha256` manifest is regenerated from that upstream pin +
+   source commit and byte-compared — the pin is derived, never hand-typed.
+   `./gradlew checkFixtureParity` runs that verifier; CI executes the task
+   explicitly in the `Unit & Integration Tests` job (and it remains part of
+   `check`), so the gate cannot be skipped by a task-selection drift.
 3. v3 nested `from`, optional entry/member fields, `revision`, and mixed tombstones
    parse without crashing; **normalization keeps v3 rooms verbatim — a room whose
    `log` is missing or not an array is retained as-is, not dropped** (pinned by

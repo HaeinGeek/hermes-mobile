@@ -50,21 +50,7 @@ class RoomCacheStoreTest {
     @Test
     fun `persisted cache stays below the 48 KB gateway budget at cache caps`() =
         runTest {
-            fun gatewayBytesOf(jsonText: String): Int {
-                // Verbatim port of Desktop groupChatGatewayJsonSize (asgard-rooms
-                // tools/desktop_extract.js): 1 byte per ASCII char, ',' and ':'
-                // counted twice, 6/12 bytes per non-ASCII codepoint.
-                var bytes = 0
-                for (ch in jsonText) {
-                    val cp = ch.code
-                    if (cp <= 0x7f) {
-                        bytes += if (ch == ',' || ch == ':') 2 else 1
-                    } else {
-                        bytes += if (cp <= 0xffff) 6 else 12
-                    }
-                }
-                return bytes
-            }
+            fun gatewayBytesOf(jsonText: String): Int = GatewaySizeEstimator.gatewayBytesOf(jsonText)
 
             // 13 chars: the largest 20×16-entry payload that still fits 48 KB
             // (44,130 bytes by the Desktop estimator).
