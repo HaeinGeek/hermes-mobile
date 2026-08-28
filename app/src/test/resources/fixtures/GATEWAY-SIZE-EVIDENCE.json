@@ -1,0 +1,35 @@
+{
+  "sourceTag": "v2026.8.19",
+  "sourceFile": "apps/desktop/src/plugins/hermes-bots/plugin.js",
+  "sourceFunction": "groupChatGatewayJsonSize",
+  "gatewaySizeLimit": 48000,
+  "cases": [
+    {
+      "label": "ASCII",
+      "codePoint": "U+41",
+      "utf8BytesPerCodePoint": 1,
+      "firstCodePointCountOverCap": 47989,
+      "previousGatewayBytes": 48000,
+      "firstGatewayBytesOverCap": 48001,
+      "firstJsonUtf8Bytes": 48000
+    },
+    {
+      "label": "Korean BMP",
+      "codePoint": "U+AC00",
+      "utf8BytesPerCodePoint": 3,
+      "firstCodePointCountOverCap": 7999,
+      "previousGatewayBytes": 48000,
+      "firstGatewayBytesOverCap": 48006,
+      "firstJsonUtf8Bytes": 24008
+    },
+    {
+      "label": "supplementary-plane emoji",
+      "codePoint": "U+1F600",
+      "utf8BytesPerCodePoint": 4,
+      "firstCodePointCountOverCap": 4000,
+      "previousGatewayBytes": 48000,
+      "firstGatewayBytesOverCap": 48012,
+      "firstJsonUtf8Bytes": 16011
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "_comment": "SYNTHETIC. Fixture 5/5 companion -- v1 envelope. Same bare-name room keys as v2, but `deleted` values are WALL-CLOCK MILLISECONDS, not revisions. normalizeGroupChatSyncSnapshot CLAMPS every v1 tombstone to revision 0 (plugin.js L388) precisely so a 1.7e12 timestamp cannot outrank a real revision and mass-delete live rooms. A parser that copies the raw value through would wipe the whole cache -- that is what this fixture guards.",
+  "version": 1,
+  "updatedAt": 1787720000000,
+  "rooms": {
+    "alpha-v1": {
+      "revision": 2,
+      "members": [{ "name": "bot-one", "handle": "bot-one" }],
+      "log": [
+        {
+          "from": { "kind": "member", "name": "bot-one" },
+          "text": "v1 envelope room that must survive the tombstone below",
+          "at": 1787720000000
+        }
+      ]
+    }
+  },
+  "deleted": {
+    "alpha-v1": 1787719999999
+  }
+}

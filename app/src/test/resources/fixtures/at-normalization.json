@@ -1,0 +1,311 @@
+{
+  "_comment": "SYNTHETIC. Fixture 4/5 -- entry.at normalization + mention edge cases. Mirrors Desktop's Number(entry.at || 0) coercion (plugin.js L429, L737). Every entry documents its expected normalized value in _expect_at. Parser must never let a single bad entry NaN-poison the room.",
+  "version": 3,
+  "updatedAt": 1787737500000,
+  "rooms": {
+    "id:rmfixt030-atnorm": {
+      "name": "at-normalization",
+      "roomId": "rmfixt030-atnorm",
+      "revision": 1,
+      "members": [
+        {
+          "name": "bot-one",
+          "handle": "bot-one"
+        }
+      ],
+      "log": [
+        {
+          "_expect_at": 0,
+          "_case": "at missing entirely",
+          "id": "ccccccc1-0000-4000-8000-000000000001",
+          "from": {
+            "kind": "member",
+            "name": "bot-one"
+          },
+          "text": "@user no at field at all"
+        },
+        {
+          "_expect_at": 0,
+          "_case": "at null",
+          "id": "ccccccc1-0000-4000-8000-000000000002",
+          "from": {
+            "kind": "member",
+            "name": "bot-one"
+          },
+          "text": "at is null",
+          "at": null
+        },
+        {
+          "_expect_at": 0,
+          "_case": "at non-numeric string -> Number('soon') is NaN, clamp to 0",
+          "id": "ccccccc1-0000-4000-8000-000000000003",
+          "from": {
+            "kind": "member",
+            "name": "bot-one"
+          },
+          "text": "@user at is a word",
+          "at": "soon"
+        },
+        {
+          "_expect_at": 0,
+          "_case": "at partially numeric string -> Number('12abc') is NaN, clamp to 0",
+          "id": "ccccccc1-0000-4000-8000-000000000004",
+          "from": {
+            "kind": "member",
+            "name": "bot-one"
+          },
+          "text": "at is 12abc",
+          "at": "12abc"
+        },
+        {
+          "_expect_at": 1787737510000,
+          "_case": "at numeric string -> parses",
+          "id": "ccccccc1-0000-4000-8000-000000000005",
+          "from": {
+            "kind": "member",
+            "name": "bot-one"
+          },
+          "text": "at is a numeric string",
+          "at": "1787737510000"
+        },
+        {
+          "_expect_at": 1,
+          "_case": "at boolean true -> Number(true) is 1 in Desktop; clamping to 0 is also acceptable, pick one and assert it",
+          "id": "ccccccc1-0000-4000-8000-000000000006",
+          "from": {
+            "kind": "member",
+            "name": "bot-one"
+          },
+          "text": "at is boolean",
+          "at": true
+        },
+        {
+          "_expect_at": 0,
+          "_case": "at negative -> must not sort before or be treated as a valid past instant; clamp to 0",
+          "id": "ccccccc1-0000-4000-8000-000000000007",
+          "from": {
+            "kind": "member",
+            "name": "bot-one"
+          },
+          "text": "at is negative",
+          "at": -5
+        },
+        {
+          "_expect_at": 1787737520000,
+          "_case": "at fractional -> truncate to Long",
+          "id": "ccccccc1-0000-4000-8000-000000000008",
+          "from": {
+            "kind": "member",
+            "name": "bot-one"
+          },
+          "text": "at has a fraction",
+          "at": 1787737520000.7
+        },
+        {
+          "_expect_at": 1787737530000,
+          "_case": "no id -> dedup must fall back to (at, from.kind, from.name, from.source, thread, text); id must NOT be the watermark key",
+          "from": {
+            "kind": "member",
+            "name": "bot-one"
+          },
+          "text": "@user id-less entry, still a valid mention",
+          "at": 1787737530000
+        },
+        {
+          "_expect_at": 1787737540000,
+          "_case": "from missing entirely -> kind defaults to user, name defaults to a placeholder; must not crash",
+          "id": "ccccccc1-0000-4000-8000-000000000009",
+          "text": "no from object",
+          "at": 1787737540000
+        },
+        {
+          "_expect_at": 1787737550000,
+          "_case": "unknown from.kind -> anything not 'member' is rendered as user (Desktop: kind === 'member' ? member : user)",
+          "id": "ccccccc1-0000-4000-8000-00000000000a",
+          "from": {
+            "kind": "system",
+            "name": "gateway"
+          },
+          "text": "@user unknown kind must NOT light the badge",
+          "at": 1787737550000
+        },
+        {
+          "_expect_at": 1787737560000,
+          "_case": "user entry mentioning @user -> must NOT light the badge (kind must be member)",
+          "id": "ccccccc1-0000-4000-8000-00000000000b",
+          "from": {
+            "kind": "user",
+            "name": "You"
+          },
+          "text": "@user talking to myself",
+          "at": 1787737560000
+        },
+        {
+          "_expect_at": 1787737570000,
+          "_case": "substring guard -> '@username' must NOT match /@user\\b/i",
+          "id": "ccccccc1-0000-4000-8000-00000000000c",
+          "from": {
+            "kind": "member",
+            "name": "bot-one"
+          },
+          "text": "pinging @username about the run",
+          "at": 1787737570000
+        },
+        {
+          "_expect_at": 1787737580000,
+          "_case": "case guard -> '@USER' MUST match (regex is case-insensitive)",
+          "id": "ccccccc1-0000-4000-8000-00000000000d",
+          "from": {
+            "kind": "member",
+            "name": "bot-one"
+          },
+          "text": "@USER uppercase mention counts",
+          "at": 1787737580000
+        },
+        {
+          "_expect_at": 1787737590000,
+          "_case": "TRUNCATION / reverse mismatch -- text is exactly 1200 chars because GROUP_CHAT_SYNC_TEXT_CHARS cut it. The original Desktop message ended '@user please confirm' and Desktop DID light its badge, but the mirrored slice has no mention, so the derived badge stays off. Expected: badge off, and the test asserts this is accepted best-effort behaviour, not a bug.",
+          "id": "ccccccc1-0000-4000-8000-00000000000e",
+          "from": {
+            "kind": "member",
+            "name": "bot-one"
+          },
+          "text": "context line for the truncated-mention case. context line for the truncated-mention case. context line for the truncated-mention case. context line for the truncated-mention case. context line for the truncated-mention case. context line for the truncated-mention case. context line for the truncated-mention case. context line for the truncated-mention case. context line for the truncated-mention case. context line for the truncated-mention case. context line for the truncated-mention case. context line for the truncated-mention case. context line for the truncated-mention case. context line for the truncated-mention case. context line for the truncated-mention case. context line for the truncated-mention case. context line for the truncated-mention case. context line for the truncated-mention case. context line for the truncated-mention case. context line for the truncated-mention case. context line for the truncated-mention case. context line for the truncated-mention case. context line for the truncated-mention case. context line for the truncated-mention case. context line for the truncated-mention case. context line for the truncated-mention case. context line for the truncated",
+          "at": 1787737590000
+        },
+        {
+          "_expect_at": 0,
+          "_case": "at overflows Double -> Number('1e400') is Infinity, clamp to 0",
+          "id": "ccccccc1-0000-4000-8000-000000000010",
+          "from": {
+            "kind": "member",
+            "name": "bot-one"
+          },
+          "text": "at overflows Double",
+          "at": "1e400"
+        },
+        {
+          "_expect_at": "9007199254740992",
+          "_case": "IEEE-754 witness (2^53 + 1): 9007199254740993 is a VALID Kotlin Long but is NOT representable as a binary64 double. Both the oracle (Number()) and Kotlin (String.toDouble()) parse to the NEAREST double 9007199254740992 = 2^53, which rounds DOWN by 1. An exact-integer parser (BigDecimal/BigInteger) would keep ...993 and diverge from Desktop; the contract is nearest-double rounding, then trunc.",
+          "id": "ccccccc1-0000-4000-8000-000000000020",
+          "from": {
+            "kind": "member",
+            "name": "bot-one"
+          },
+          "text": "at is 2^53 + 1, first integer a double cannot represent",
+          "at": "9007199254740993"
+        },
+        {
+          "_expect_at": "9007199254740996",
+          "_case": "IEEE-754 witness (2^53 + 3): 9007199254740995 is a valid Long whose nearest double is 9007199254740996, ONE ABOVE it — double parsing can round UP as well as down. Desktop's Number() and Kotlin's toDouble() agree on this; the value stored is the double, not the input integer.",
+          "id": "ccccccc1-0000-4000-8000-000000000021",
+          "from": {
+            "kind": "member",
+            "name": "bot-one"
+          },
+          "text": "at is 2^53 + 3, nearest double rounds up",
+          "at": "9007199254740995"
+        },
+        {
+          "_expect_at": "4611686018427387904",
+          "_case": "IEEE-754 witness (2^62 + 1): mid-range probe. 4611686018427387905 is odd and above 2^53; doubles this large are spaced 1024 apart, so the nearest double is 4611686018427387904 = 2^62, off by 1. Any parser that claims exact Long round-trip through a double silently changes the watermark basis here.",
+          "id": "ccccccc1-0000-4000-8000-000000000022",
+          "from": {
+            "kind": "member",
+            "name": "bot-one"
+          },
+          "text": "at is 2^62 + 1, odd Long mid-range",
+          "at": "4611686018427387905"
+        },
+        {
+          "_expect_at": "9223372036854774784",
+          "_case": "IEEE-754 witness (largest double below 2^63, minus 1): 9223372036854774785 is a valid Long one above the largest representable double 9223372036854774784 (2^63 - 2^10). It parses DOWN to ...784 and stays a legitimate Long-storable timestamp — accepted (not clamped), because the contract is nearest-double rounding, not integer exactness.",
+          "id": "ccccccc1-0000-4000-8000-000000000023",
+          "from": {
+            "kind": "member",
+            "name": "bot-one"
+          },
+          "text": "at is one above the largest Long-storable double",
+          "at": "9223372036854774785"
+        },
+        {
+          "_expect_at": 0,
+          "_case": "at is finite but exceeds Kotlin Long storage -> mobile clamps to 0. NOTE: the Desktop-domain normAt KEEPS this value (it is a finite double); only normAtMobileLong rejects it. EXPECTED.json carries both columns, and _expect_at follows the MOBILE column.",
+          "id": "ccccccc1-0000-4000-8000-000000000011",
+          "from": {
+            "kind": "member",
+            "name": "bot-one"
+          },
+          "text": "at exceeds Long storage",
+          "at": "1.7976931348623157e308"
+        },
+        {
+          "_expect_at": 0,
+          "_case": "LONG BOUNDARY: 2^63 = 9223372036854775808 is the double nearest Long.MAX_VALUE and sits one ABOVE it. A guard written as '> Number(Long.MAX_VALUE)' compares against this same 2^63 and lets it through, where Kotlin Double.toLong() saturates to Long.MAX_VALUE -- permanently poisoning the monotonic read watermark. Correct cut is >= 2^63.",
+          "id": "ccccccc1-0000-4000-8000-000000000014",
+          "from": {
+            "kind": "member",
+            "name": "bot-one"
+          },
+          "text": "@user at is exactly 2^63",
+          "at": "9223372036854775808"
+        },
+        {
+          "_expect_at": 0,
+          "_case": "LONG BOUNDARY: Long.MAX_VALUE itself (9223372036854775807) is NOT representable as a double -- it rounds UP to 2^63, so it must be rejected too. This is the probe that fails against a '>' guard.",
+          "id": "ccccccc1-0000-4000-8000-000000000015",
+          "from": {
+            "kind": "member",
+            "name": "bot-one"
+          },
+          "text": "at is Long.MAX_VALUE as a string",
+          "at": "9223372036854775807"
+        },
+        {
+          "_expect_at": "9223372036854774784",
+          "_case": "LONG BOUNDARY: 9223372036854774784 is the LARGEST double below 2^63 and is exactly representable as a Long. It must pass through unchanged -- a guard that over-rejects would zero a legitimate timestamp. No double exists between this value and 2^63.",
+          "id": "ccccccc1-0000-4000-8000-000000000016",
+          "from": {
+            "kind": "member",
+            "name": "bot-one"
+          },
+          "text": "at is the largest representable Long-storable double",
+          "at": "9223372036854774784"
+        },
+        {
+          "_expect_at": 16,
+          "_case": "hex numeric string follows JavaScript Number('0x10') -> 16",
+          "id": "ccccccc1-0000-4000-8000-000000000012",
+          "from": {
+            "kind": "member",
+            "name": "bot-one"
+          },
+          "text": "at is hexadecimal",
+          "at": "0x10"
+        },
+        {
+          "_expect_at": 0,
+          "_case": "Java suffix is not JavaScript numeric grammar -> Number('1d') is NaN",
+          "id": "ccccccc1-0000-4000-8000-000000000013",
+          "from": {
+            "kind": "member",
+            "name": "bot-one"
+          },
+          "text": "at has a Java-only suffix",
+          "at": "1d"
+        },
+        {
+          "_expect_at": 0,
+          "_case": "text missing -> empty string, no crash, no mention",
+          "id": "ccccccc1-0000-4000-8000-00000000000f",
+          "from": {
+            "kind": "member",
+            "name": "bot-one"
+          },
+          "at": 0
+        }
+      ]
+    }
+  },
+  "deleted": {}
+}

@@ -1,0 +1,1267 @@
+[
+  {
+    "file": "v3-normal.json",
+    "declaredVersion": 3,
+    "normalizedVersion": 3,
+    "gatewayBytes": 1674,
+    "longStorageBoundary": "9223372036854775808",
+    "roomKeysAfterNormalize": [
+      "id:rmfixt001-aaaaa",
+      "id:rmfixt002-bbbbb"
+    ],
+    "tombstoneKeysAfterNormalize": {
+      "id:rmfixt003-ccccc": 9,
+      "name:legacy-disbanded": 4
+    },
+    "tombstoneActions": [
+      {
+        "key": "id:rmfixt003-ccccc",
+        "rule": "id: final delete (L616)",
+        "deletedRoom": false,
+        "tombstoneKept": true
+      },
+      {
+        "key": "name:legacy-disbanded",
+        "rule": "name: rev >= room.revision -> delete (L617)",
+        "deletedRoom": false,
+        "tombstoneKept": true
+      }
+    ],
+    "roomKeysSurviving": [
+      "id:rmfixt001-aaaaa",
+      "id:rmfixt002-bbbbb"
+    ],
+    "rooms": {
+      "id:rmfixt001-aaaaa": {
+        "displayName": "alpha",
+        "revision": 12,
+        "surviving": true,
+        "logIsArray": true,
+        "entries": 3,
+        "members": 2,
+        "entriesMissingId": 0,
+        "normalizedAt": [
+          1787737000000,
+          1787737010000,
+          1787737020000
+        ],
+        "normalizedAtMobileLong": [
+          "1787737000000",
+          "1787737010000",
+          "1787737020000"
+        ],
+        "newestAt": 1787737020000,
+        "oldestAt": 1787737000000,
+        "sortOrderByEntryKey": [
+          "id:11111111-1111-4111-8111-111111111111",
+          "id:22222222-2222-4222-8222-222222222222",
+          "id:33333333-3333-4333-8333-333333333333"
+        ],
+        "mentionEntryIndexes": [
+          2
+        ],
+        "badgeNeverOpened": true,
+        "badgeOpenedBeforeWindow": true,
+        "badgeOpenedAtNewest": false,
+        "mentionsUnreachableWhenOpened": [],
+        "mobile": {
+          "normalizedAt": [
+            "1787737000000",
+            "1787737010000",
+            "1787737020000"
+          ],
+          "oldestAt": "1787737000000",
+          "newestAt": "1787737020000",
+          "displayOrder": [
+            0,
+            1,
+            2
+          ],
+          "mentionEntryIndexes": [
+            2
+          ],
+          "mentionsUnreachableWhenOpened": [],
+          "badgeNeverOpened": true,
+          "badgeOpenedBeforeWindow": true,
+          "badgeOpenedAtNewest": false,
+          "hasHistoryGapWhenNeverOpened": true,
+          "watermarkAfterOpen": "1787737020000"
+        },
+        "memberKeys": [
+          "[\"\",\"\",\"\",\"bot-one\",\"bot-one\"]",
+          "[\"\",\"conn-remote-1\",\"lab-pod\",\"bot-two\",\"bot-two\"]"
+        ]
+      },
+      "id:rmfixt002-bbbbb": {
+        "displayName": "beta",
+        "revision": 5,
+        "surviving": true,
+        "logIsArray": true,
+        "entries": 1,
+        "members": 1,
+        "entriesMissingId": 0,
+        "normalizedAt": [
+          1787736000000
+        ],
+        "normalizedAtMobileLong": [
+          "1787736000000"
+        ],
+        "newestAt": 1787736000000,
+        "oldestAt": 1787736000000,
+        "sortOrderByEntryKey": [
+          "id:44444444-4444-4444-8444-444444444444"
+        ],
+        "mentionEntryIndexes": [],
+        "badgeNeverOpened": false,
+        "badgeOpenedBeforeWindow": false,
+        "badgeOpenedAtNewest": false,
+        "mentionsUnreachableWhenOpened": [],
+        "mobile": {
+          "normalizedAt": [
+            "1787736000000"
+          ],
+          "oldestAt": "1787736000000",
+          "newestAt": "1787736000000",
+          "displayOrder": [
+            0
+          ],
+          "mentionEntryIndexes": [],
+          "mentionsUnreachableWhenOpened": [],
+          "badgeNeverOpened": false,
+          "badgeOpenedBeforeWindow": false,
+          "badgeOpenedAtNewest": false,
+          "hasHistoryGapWhenNeverOpened": true,
+          "watermarkAfterOpen": "1787736000000"
+        },
+        "memberKeys": [
+          "[\"\",\"\",\"\",\"bot-three\",\"bot-three\"]"
+        ]
+      }
+    }
+  },
+  {
+    "file": "v3-malformed.json",
+    "declaredVersion": 3,
+    "normalizedVersion": 3,
+    "gatewayBytes": 1409,
+    "longStorageBoundary": "9223372036854775808",
+    "roomKeysAfterNormalize": [
+      "id:rmfixt040-malfrm",
+      "id:rmfixt041-negdel"
+    ],
+    "tombstoneKeysAfterNormalize": {
+      "id:rmfixt041-negdel": -9
+    },
+    "tombstoneActions": [
+      {
+        "key": "id:rmfixt041-negdel",
+        "rule": "id: final delete (L616)",
+        "deletedRoom": true,
+        "tombstoneKept": true
+      }
+    ],
+    "roomKeysSurviving": [
+      "id:rmfixt040-malfrm"
+    ],
+    "rooms": {
+      "id:rmfixt040-malfrm": {
+        "displayName": "stale-inner-name",
+        "revision": 4,
+        "surviving": true,
+        "logIsArray": false,
+        "entries": 0,
+        "members": 1,
+        "entriesMissingId": 0,
+        "normalizedAt": [],
+        "normalizedAtMobileLong": [],
+        "newestAt": 0,
+        "oldestAt": 0,
+        "sortOrderByEntryKey": [],
+        "mentionEntryIndexes": [],
+        "badgeNeverOpened": false,
+        "badgeOpenedBeforeWindow": false,
+        "badgeOpenedAtNewest": false,
+        "mentionsUnreachableWhenOpened": [],
+        "mobile": {
+          "normalizedAt": [],
+          "oldestAt": "0",
+          "newestAt": "0",
+          "displayOrder": [],
+          "mentionEntryIndexes": [],
+          "mentionsUnreachableWhenOpened": [],
+          "badgeNeverOpened": false,
+          "badgeOpenedBeforeWindow": false,
+          "badgeOpenedAtNewest": false,
+          "hasHistoryGapWhenNeverOpened": false,
+          "watermarkAfterOpen": "1"
+        },
+        "memberKeys": [
+          "[\"\",\"\",\"\",\"bot-one\",\"bot-one\"]"
+        ]
+      },
+      "id:rmfixt041-negdel": {
+        "displayName": "negative-tombstone-target",
+        "revision": 2,
+        "surviving": false,
+        "logIsArray": true,
+        "entries": 2,
+        "members": 1,
+        "entriesMissingId": 0,
+        "normalizedAt": [
+          1787737460000,
+          1787737461000
+        ],
+        "normalizedAtMobileLong": [
+          "1787737460000",
+          "1787737461000"
+        ],
+        "newestAt": 1787737461000,
+        "oldestAt": 1787737460000,
+        "sortOrderByEntryKey": [
+          "id:44414441-4441-4441-8441-444144414441",
+          "id:44414442-4442-4442-8442-444244424442"
+        ],
+        "mentionEntryIndexes": [
+          1
+        ],
+        "badgeNeverOpened": true,
+        "badgeOpenedBeforeWindow": true,
+        "badgeOpenedAtNewest": false,
+        "mentionsUnreachableWhenOpened": [],
+        "mobile": {
+          "normalizedAt": [
+            "1787737460000",
+            "1787737461000"
+          ],
+          "oldestAt": "1787737460000",
+          "newestAt": "1787737461000",
+          "displayOrder": [
+            0,
+            1
+          ],
+          "mentionEntryIndexes": [
+            1
+          ],
+          "mentionsUnreachableWhenOpened": [],
+          "badgeNeverOpened": true,
+          "badgeOpenedBeforeWindow": true,
+          "badgeOpenedAtNewest": false,
+          "hasHistoryGapWhenNeverOpened": true,
+          "watermarkAfterOpen": "1787737461000"
+        },
+        "memberKeys": [
+          "[\"\",\"\",\"\",\"bot-two\",\"bot-two\"]"
+        ]
+      }
+    }
+  },
+  {
+    "file": "v3-capped-room-evicted/02-before.json",
+    "declaredVersion": 3,
+    "normalizedVersion": 3,
+    "gatewayBytes": 1590,
+    "longStorageBoundary": "9223372036854775808",
+    "roomKeysAfterNormalize": [
+      "id:rmfixt010-hot01",
+      "id:rmfixt011-warm1",
+      "id:rmfixt012-gamma"
+    ],
+    "tombstoneKeysAfterNormalize": {},
+    "tombstoneActions": [],
+    "roomKeysSurviving": [
+      "id:rmfixt010-hot01",
+      "id:rmfixt011-warm1",
+      "id:rmfixt012-gamma"
+    ],
+    "rooms": {
+      "id:rmfixt010-hot01": {
+        "displayName": "hot",
+        "revision": 30,
+        "surviving": true,
+        "logIsArray": true,
+        "entries": 1,
+        "members": 1,
+        "entriesMissingId": 0,
+        "normalizedAt": [
+          1787737090000
+        ],
+        "normalizedAtMobileLong": [
+          "1787737090000"
+        ],
+        "newestAt": 1787737090000,
+        "oldestAt": 1787737090000,
+        "sortOrderByEntryKey": [
+          "id:aaaaaaa1-0000-4000-8000-000000000001"
+        ],
+        "mentionEntryIndexes": [],
+        "badgeNeverOpened": false,
+        "badgeOpenedBeforeWindow": false,
+        "badgeOpenedAtNewest": false,
+        "mentionsUnreachableWhenOpened": [],
+        "mobile": {
+          "normalizedAt": [
+            "1787737090000"
+          ],
+          "oldestAt": "1787737090000",
+          "newestAt": "1787737090000",
+          "displayOrder": [
+            0
+          ],
+          "mentionEntryIndexes": [],
+          "mentionsUnreachableWhenOpened": [],
+          "badgeNeverOpened": false,
+          "badgeOpenedBeforeWindow": false,
+          "badgeOpenedAtNewest": false,
+          "hasHistoryGapWhenNeverOpened": true,
+          "watermarkAfterOpen": "1787737090000"
+        },
+        "memberKeys": [
+          "[\"\",\"\",\"\",\"bot-one\",\"bot-one\"]"
+        ]
+      },
+      "id:rmfixt011-warm1": {
+        "displayName": "warm",
+        "revision": 22,
+        "surviving": true,
+        "logIsArray": true,
+        "entries": 1,
+        "members": 1,
+        "entriesMissingId": 0,
+        "normalizedAt": [
+          1787737050000
+        ],
+        "normalizedAtMobileLong": [
+          "1787737050000"
+        ],
+        "newestAt": 1787737050000,
+        "oldestAt": 1787737050000,
+        "sortOrderByEntryKey": [
+          "id:aaaaaaa1-0000-4000-8000-000000000002"
+        ],
+        "mentionEntryIndexes": [
+          0
+        ],
+        "badgeNeverOpened": true,
+        "badgeOpenedBeforeWindow": true,
+        "badgeOpenedAtNewest": false,
+        "mentionsUnreachableWhenOpened": [],
+        "mobile": {
+          "normalizedAt": [
+            "1787737050000"
+          ],
+          "oldestAt": "1787737050000",
+          "newestAt": "1787737050000",
+          "displayOrder": [
+            0
+          ],
+          "mentionEntryIndexes": [
+            0
+          ],
+          "mentionsUnreachableWhenOpened": [],
+          "badgeNeverOpened": true,
+          "badgeOpenedBeforeWindow": true,
+          "badgeOpenedAtNewest": false,
+          "hasHistoryGapWhenNeverOpened": true,
+          "watermarkAfterOpen": "1787737050000"
+        },
+        "memberKeys": [
+          "[\"\",\"\",\"\",\"bot-two\",\"bot-two\"]"
+        ]
+      },
+      "id:rmfixt012-gamma": {
+        "displayName": "gamma",
+        "revision": 7,
+        "surviving": true,
+        "logIsArray": true,
+        "entries": 1,
+        "members": 1,
+        "entriesMissingId": 0,
+        "normalizedAt": [
+          1787730000000
+        ],
+        "normalizedAtMobileLong": [
+          "1787730000000"
+        ],
+        "newestAt": 1787730000000,
+        "oldestAt": 1787730000000,
+        "sortOrderByEntryKey": [
+          "id:aaaaaaa1-0000-4000-8000-000000000003"
+        ],
+        "mentionEntryIndexes": [
+          0
+        ],
+        "badgeNeverOpened": true,
+        "badgeOpenedBeforeWindow": true,
+        "badgeOpenedAtNewest": false,
+        "mentionsUnreachableWhenOpened": [],
+        "mobile": {
+          "normalizedAt": [
+            "1787730000000"
+          ],
+          "oldestAt": "1787730000000",
+          "newestAt": "1787730000000",
+          "displayOrder": [
+            0
+          ],
+          "mentionEntryIndexes": [
+            0
+          ],
+          "mentionsUnreachableWhenOpened": [],
+          "badgeNeverOpened": true,
+          "badgeOpenedBeforeWindow": true,
+          "badgeOpenedAtNewest": false,
+          "hasHistoryGapWhenNeverOpened": true,
+          "watermarkAfterOpen": "1787730000000"
+        },
+        "memberKeys": [
+          "[\"\",\"\",\"\",\"bot-three\",\"bot-three\"]"
+        ]
+      }
+    }
+  },
+  {
+    "file": "v3-capped-room-evicted/03-after.json",
+    "declaredVersion": 3,
+    "normalizedVersion": 3,
+    "gatewayBytes": 910,
+    "longStorageBoundary": "9223372036854775808",
+    "roomKeysAfterNormalize": [
+      "id:rmfixt010-hot01"
+    ],
+    "tombstoneKeysAfterNormalize": {
+      "id:rmfixt011-warm1": 22
+    },
+    "tombstoneActions": [
+      {
+        "key": "id:rmfixt011-warm1",
+        "rule": "id: final delete (L616)",
+        "deletedRoom": false,
+        "tombstoneKept": true
+      }
+    ],
+    "roomKeysSurviving": [
+      "id:rmfixt010-hot01"
+    ],
+    "rooms": {
+      "id:rmfixt010-hot01": {
+        "displayName": "hot",
+        "revision": 31,
+        "surviving": true,
+        "logIsArray": true,
+        "entries": 2,
+        "members": 1,
+        "entriesMissingId": 0,
+        "normalizedAt": [
+          1787737090000,
+          1787737290000
+        ],
+        "normalizedAtMobileLong": [
+          "1787737090000",
+          "1787737290000"
+        ],
+        "newestAt": 1787737290000,
+        "oldestAt": 1787737090000,
+        "sortOrderByEntryKey": [
+          "id:aaaaaaa1-0000-4000-8000-000000000001",
+          "id:aaaaaaa1-0000-4000-8000-000000000004"
+        ],
+        "mentionEntryIndexes": [
+          1
+        ],
+        "badgeNeverOpened": true,
+        "badgeOpenedBeforeWindow": true,
+        "badgeOpenedAtNewest": false,
+        "mentionsUnreachableWhenOpened": [],
+        "mobile": {
+          "normalizedAt": [
+            "1787737090000",
+            "1787737290000"
+          ],
+          "oldestAt": "1787737090000",
+          "newestAt": "1787737290000",
+          "displayOrder": [
+            0,
+            1
+          ],
+          "mentionEntryIndexes": [
+            1
+          ],
+          "mentionsUnreachableWhenOpened": [],
+          "badgeNeverOpened": true,
+          "badgeOpenedBeforeWindow": true,
+          "badgeOpenedAtNewest": false,
+          "hasHistoryGapWhenNeverOpened": true,
+          "watermarkAfterOpen": "1787737290000"
+        },
+        "memberKeys": [
+          "[\"\",\"\",\"\",\"bot-one\",\"bot-one\"]"
+        ]
+      }
+    }
+  },
+  {
+    "file": "v3-capped-room-evicted/04-gamma-returns.json",
+    "declaredVersion": 3,
+    "normalizedVersion": 3,
+    "gatewayBytes": 1745,
+    "longStorageBoundary": "9223372036854775808",
+    "roomKeysAfterNormalize": [
+      "id:rmfixt010-hot01",
+      "id:rmfixt012-gamma"
+    ],
+    "tombstoneKeysAfterNormalize": {
+      "id:rmfixt011-warm1": 22
+    },
+    "tombstoneActions": [
+      {
+        "key": "id:rmfixt011-warm1",
+        "rule": "id: final delete (L616)",
+        "deletedRoom": false,
+        "tombstoneKept": true
+      }
+    ],
+    "roomKeysSurviving": [
+      "id:rmfixt010-hot01",
+      "id:rmfixt012-gamma"
+    ],
+    "rooms": {
+      "id:rmfixt010-hot01": {
+        "displayName": "hot",
+        "revision": 32,
+        "surviving": true,
+        "logIsArray": true,
+        "entries": 2,
+        "members": 1,
+        "entriesMissingId": 0,
+        "normalizedAt": [
+          1787737290000,
+          1787737590000
+        ],
+        "normalizedAtMobileLong": [
+          "1787737290000",
+          "1787737590000"
+        ],
+        "newestAt": 1787737590000,
+        "oldestAt": 1787737290000,
+        "sortOrderByEntryKey": [
+          "id:aaaaaaa1-0000-4000-8000-000000000004",
+          "id:aaaaaaa1-0000-4000-8000-000000000005"
+        ],
+        "mentionEntryIndexes": [
+          0
+        ],
+        "badgeNeverOpened": true,
+        "badgeOpenedBeforeWindow": true,
+        "badgeOpenedAtNewest": false,
+        "mentionsUnreachableWhenOpened": [],
+        "mobile": {
+          "normalizedAt": [
+            "1787737290000",
+            "1787737590000"
+          ],
+          "oldestAt": "1787737290000",
+          "newestAt": "1787737590000",
+          "displayOrder": [
+            0,
+            1
+          ],
+          "mentionEntryIndexes": [
+            0
+          ],
+          "mentionsUnreachableWhenOpened": [],
+          "badgeNeverOpened": true,
+          "badgeOpenedBeforeWindow": true,
+          "badgeOpenedAtNewest": false,
+          "hasHistoryGapWhenNeverOpened": true,
+          "watermarkAfterOpen": "1787737590000"
+        },
+        "memberKeys": [
+          "[\"\",\"\",\"\",\"bot-one\",\"bot-one\"]"
+        ]
+      },
+      "id:rmfixt012-gamma": {
+        "displayName": "gamma",
+        "revision": 7,
+        "surviving": true,
+        "logIsArray": true,
+        "entries": 1,
+        "members": 1,
+        "entriesMissingId": 0,
+        "normalizedAt": [
+          1787730000000
+        ],
+        "normalizedAtMobileLong": [
+          "1787730000000"
+        ],
+        "newestAt": 1787730000000,
+        "oldestAt": 1787730000000,
+        "sortOrderByEntryKey": [
+          "id:aaaaaaa1-0000-4000-8000-000000000003"
+        ],
+        "mentionEntryIndexes": [
+          0
+        ],
+        "badgeNeverOpened": true,
+        "badgeOpenedBeforeWindow": true,
+        "badgeOpenedAtNewest": false,
+        "mentionsUnreachableWhenOpened": [],
+        "mobile": {
+          "normalizedAt": [
+            "1787730000000"
+          ],
+          "oldestAt": "1787730000000",
+          "newestAt": "1787730000000",
+          "displayOrder": [
+            0
+          ],
+          "mentionEntryIndexes": [
+            0
+          ],
+          "mentionsUnreachableWhenOpened": [],
+          "badgeNeverOpened": true,
+          "badgeOpenedBeforeWindow": true,
+          "badgeOpenedAtNewest": false,
+          "hasHistoryGapWhenNeverOpened": true,
+          "watermarkAfterOpen": "1787730000000"
+        },
+        "memberKeys": [
+          "[\"\",\"\",\"\",\"bot-three\",\"bot-three\"]"
+        ]
+      }
+    }
+  },
+  {
+    "file": "legacy-name-key.json",
+    "declaredVersion": 3,
+    "normalizedVersion": 3,
+    "gatewayBytes": 1966,
+    "longStorageBoundary": "9223372036854775808",
+    "roomKeysAfterNormalize": [
+      "id:rmfixt020-mixed",
+      "name:oldroom",
+      "name:ripe-tomb",
+      "name:stale-tomb"
+    ],
+    "tombstoneKeysAfterNormalize": {
+      "name:stale-tomb": 6,
+      "name:ripe-tomb": 4
+    },
+    "tombstoneActions": [
+      {
+        "key": "name:stale-tomb",
+        "rule": "name: rev < room.revision -> DISCARD TOMBSTONE, keep room (L620)",
+        "deletedRoom": false,
+        "tombstoneKept": false
+      },
+      {
+        "key": "name:ripe-tomb",
+        "rule": "name: rev >= room.revision -> delete (L617)",
+        "deletedRoom": true,
+        "tombstoneKept": true
+      }
+    ],
+    "roomKeysSurviving": [
+      "id:rmfixt020-mixed",
+      "name:oldroom",
+      "name:stale-tomb"
+    ],
+    "rooms": {
+      "name:oldroom": {
+        "displayName": "oldroom",
+        "revision": 3,
+        "surviving": true,
+        "logIsArray": true,
+        "entries": 2,
+        "members": 1,
+        "entriesMissingId": 0,
+        "normalizedAt": [
+          1787737400000,
+          1787737401000
+        ],
+        "normalizedAtMobileLong": [
+          "1787737400000",
+          "1787737401000"
+        ],
+        "newestAt": 1787737401000,
+        "oldestAt": 1787737400000,
+        "sortOrderByEntryKey": [
+          "id:bbbbbbb1-0000-4000-8000-000000000001",
+          "id:bbbbbbb1-0000-4000-8000-000000000002"
+        ],
+        "mentionEntryIndexes": [
+          1
+        ],
+        "badgeNeverOpened": true,
+        "badgeOpenedBeforeWindow": true,
+        "badgeOpenedAtNewest": false,
+        "mentionsUnreachableWhenOpened": [],
+        "mobile": {
+          "normalizedAt": [
+            "1787737400000",
+            "1787737401000"
+          ],
+          "oldestAt": "1787737400000",
+          "newestAt": "1787737401000",
+          "displayOrder": [
+            0,
+            1
+          ],
+          "mentionEntryIndexes": [
+            1
+          ],
+          "mentionsUnreachableWhenOpened": [],
+          "badgeNeverOpened": true,
+          "badgeOpenedBeforeWindow": true,
+          "badgeOpenedAtNewest": false,
+          "hasHistoryGapWhenNeverOpened": true,
+          "watermarkAfterOpen": "1787737401000"
+        },
+        "memberKeys": [
+          "[\"\",\"\",\"\",\"bot-one\",\"bot-one\"]"
+        ]
+      },
+      "name:stale-tomb": {
+        "displayName": "stale-tomb",
+        "revision": 10,
+        "surviving": true,
+        "logIsArray": true,
+        "entries": 1,
+        "members": 1,
+        "entriesMissingId": 0,
+        "normalizedAt": [
+          1787737402000
+        ],
+        "normalizedAtMobileLong": [
+          "1787737402000"
+        ],
+        "newestAt": 1787737402000,
+        "oldestAt": 1787737402000,
+        "sortOrderByEntryKey": [
+          "id:bbbbbbb1-0000-4000-8000-000000000003"
+        ],
+        "mentionEntryIndexes": [],
+        "badgeNeverOpened": false,
+        "badgeOpenedBeforeWindow": false,
+        "badgeOpenedAtNewest": false,
+        "mentionsUnreachableWhenOpened": [],
+        "mobile": {
+          "normalizedAt": [
+            "1787737402000"
+          ],
+          "oldestAt": "1787737402000",
+          "newestAt": "1787737402000",
+          "displayOrder": [
+            0
+          ],
+          "mentionEntryIndexes": [],
+          "mentionsUnreachableWhenOpened": [],
+          "badgeNeverOpened": false,
+          "badgeOpenedBeforeWindow": false,
+          "badgeOpenedAtNewest": false,
+          "hasHistoryGapWhenNeverOpened": true,
+          "watermarkAfterOpen": "1787737402000"
+        },
+        "memberKeys": [
+          "[\"\",\"\",\"\",\"bot-two\",\"bot-two\"]"
+        ]
+      },
+      "name:ripe-tomb": {
+        "displayName": "ripe-tomb",
+        "revision": 4,
+        "surviving": false,
+        "logIsArray": true,
+        "entries": 1,
+        "members": 1,
+        "entriesMissingId": 0,
+        "normalizedAt": [
+          1787737403000
+        ],
+        "normalizedAtMobileLong": [
+          "1787737403000"
+        ],
+        "newestAt": 1787737403000,
+        "oldestAt": 1787737403000,
+        "sortOrderByEntryKey": [
+          "id:bbbbbbb1-0000-4000-8000-000000000004"
+        ],
+        "mentionEntryIndexes": [],
+        "badgeNeverOpened": false,
+        "badgeOpenedBeforeWindow": false,
+        "badgeOpenedAtNewest": false,
+        "mentionsUnreachableWhenOpened": [],
+        "mobile": {
+          "normalizedAt": [
+            "1787737403000"
+          ],
+          "oldestAt": "1787737403000",
+          "newestAt": "1787737403000",
+          "displayOrder": [
+            0
+          ],
+          "mentionEntryIndexes": [],
+          "mentionsUnreachableWhenOpened": [],
+          "badgeNeverOpened": false,
+          "badgeOpenedBeforeWindow": false,
+          "badgeOpenedAtNewest": false,
+          "hasHistoryGapWhenNeverOpened": true,
+          "watermarkAfterOpen": "1787737403000"
+        },
+        "memberKeys": [
+          "[\"\",\"\",\"\",\"bot-three\",\"bot-three\"]"
+        ]
+      },
+      "id:rmfixt020-mixed": {
+        "displayName": "modern",
+        "revision": 2,
+        "surviving": true,
+        "logIsArray": true,
+        "entries": 1,
+        "members": 1,
+        "entriesMissingId": 0,
+        "normalizedAt": [
+          1787737404000
+        ],
+        "normalizedAtMobileLong": [
+          "1787737404000"
+        ],
+        "newestAt": 1787737404000,
+        "oldestAt": 1787737404000,
+        "sortOrderByEntryKey": [
+          "id:bbbbbbb1-0000-4000-8000-000000000005"
+        ],
+        "mentionEntryIndexes": [],
+        "badgeNeverOpened": false,
+        "badgeOpenedBeforeWindow": false,
+        "badgeOpenedAtNewest": false,
+        "mentionsUnreachableWhenOpened": [],
+        "mobile": {
+          "normalizedAt": [
+            "1787737404000"
+          ],
+          "oldestAt": "1787737404000",
+          "newestAt": "1787737404000",
+          "displayOrder": [
+            0
+          ],
+          "mentionEntryIndexes": [],
+          "mentionsUnreachableWhenOpened": [],
+          "badgeNeverOpened": false,
+          "badgeOpenedBeforeWindow": false,
+          "badgeOpenedAtNewest": false,
+          "hasHistoryGapWhenNeverOpened": true,
+          "watermarkAfterOpen": "1787737404000"
+        },
+        "memberKeys": [
+          "[\"\",\"\",\"\",\"bot-four\",\"bot-four\"]"
+        ]
+      }
+    }
+  },
+  {
+    "file": "at-normalization.json",
+    "declaredVersion": 3,
+    "normalizedVersion": 3,
+    "gatewayBytes": 10627,
+    "longStorageBoundary": "9223372036854775808",
+    "roomKeysAfterNormalize": [
+      "id:rmfixt030-atnorm"
+    ],
+    "tombstoneKeysAfterNormalize": {},
+    "tombstoneActions": [],
+    "roomKeysSurviving": [
+      "id:rmfixt030-atnorm"
+    ],
+    "rooms": {
+      "id:rmfixt030-atnorm": {
+        "displayName": "at-normalization",
+        "revision": 1,
+        "surviving": true,
+        "logIsArray": true,
+        "entries": 27,
+        "members": 1,
+        "entriesMissingId": 1,
+        "normalizedAt": [
+          0,
+          0,
+          0,
+          0,
+          1787737510000,
+          1,
+          0,
+          1787737520000,
+          1787737530000,
+          1787737540000,
+          1787737550000,
+          1787737560000,
+          1787737570000,
+          1787737580000,
+          1787737590000,
+          0,
+          9007199254740992,
+          9007199254740996,
+          4611686018427388000,
+          9223372036854775000,
+          1.7976931348623157e+308,
+          9223372036854776000,
+          9223372036854776000,
+          9223372036854775000,
+          16,
+          0,
+          0
+        ],
+        "normalizedAtMobileLong": [
+          "0",
+          "0",
+          "0",
+          "0",
+          "1787737510000",
+          "1",
+          "0",
+          "1787737520000",
+          "1787737530000",
+          "1787737540000",
+          "1787737550000",
+          "1787737560000",
+          "1787737570000",
+          "1787737580000",
+          "1787737590000",
+          "0",
+          "9007199254740992",
+          "9007199254740996",
+          "4611686018427387904",
+          "9223372036854774784",
+          "0",
+          "0",
+          "0",
+          "9223372036854774784",
+          "16",
+          "0",
+          "0"
+        ],
+        "newestAt": 1.7976931348623157e+308,
+        "oldestAt": 0,
+        "sortOrderByEntryKey": [
+          "id:ccccccc1-0000-4000-8000-000000000001",
+          "id:ccccccc1-0000-4000-8000-000000000002",
+          "id:ccccccc1-0000-4000-8000-000000000003",
+          "id:ccccccc1-0000-4000-8000-000000000004",
+          "id:ccccccc1-0000-4000-8000-000000000007",
+          "id:ccccccc1-0000-4000-8000-00000000000f",
+          "id:ccccccc1-0000-4000-8000-000000000010",
+          "id:ccccccc1-0000-4000-8000-000000000013",
+          "id:ccccccc1-0000-4000-8000-000000000006",
+          "id:ccccccc1-0000-4000-8000-000000000012",
+          "id:ccccccc1-0000-4000-8000-000000000005",
+          "id:ccccccc1-0000-4000-8000-000000000008",
+          "[1787737530000,\"member\",\"bot-one\",\"\",\"legacy\",",
+          "id:ccccccc1-0000-4000-8000-000000000009",
+          "id:ccccccc1-0000-4000-8000-00000000000a",
+          "id:ccccccc1-0000-4000-8000-00000000000b",
+          "id:ccccccc1-0000-4000-8000-00000000000c",
+          "id:ccccccc1-0000-4000-8000-00000000000d",
+          "id:ccccccc1-0000-4000-8000-00000000000e",
+          "id:ccccccc1-0000-4000-8000-000000000020",
+          "id:ccccccc1-0000-4000-8000-000000000021",
+          "id:ccccccc1-0000-4000-8000-000000000022",
+          "id:ccccccc1-0000-4000-8000-000000000016",
+          "id:ccccccc1-0000-4000-8000-000000000023",
+          "id:ccccccc1-0000-4000-8000-000000000014",
+          "id:ccccccc1-0000-4000-8000-000000000015",
+          "id:ccccccc1-0000-4000-8000-000000000011"
+        ],
+        "mentionEntryIndexes": [
+          0,
+          2,
+          8,
+          13,
+          21
+        ],
+        "badgeNeverOpened": true,
+        "badgeOpenedBeforeWindow": true,
+        "badgeOpenedAtNewest": false,
+        "mentionsUnreachableWhenOpened": [
+          0,
+          2
+        ],
+        "mobile": {
+          "normalizedAt": [
+            "0",
+            "0",
+            "0",
+            "0",
+            "1787737510000",
+            "1",
+            "0",
+            "1787737520000",
+            "1787737530000",
+            "1787737540000",
+            "1787737550000",
+            "1787737560000",
+            "1787737570000",
+            "1787737580000",
+            "1787737590000",
+            "0",
+            "9007199254740992",
+            "9007199254740996",
+            "4611686018427387904",
+            "9223372036854774784",
+            "0",
+            "0",
+            "0",
+            "9223372036854774784",
+            "16",
+            "0",
+            "0"
+          ],
+          "oldestAt": "0",
+          "newestAt": "9223372036854774784",
+          "displayOrder": [
+            0,
+            1,
+            2,
+            3,
+            6,
+            15,
+            20,
+            21,
+            22,
+            25,
+            26,
+            5,
+            24,
+            4,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            16,
+            17,
+            18,
+            19,
+            23
+          ],
+          "mentionEntryIndexes": [
+            0,
+            2,
+            8,
+            13,
+            21
+          ],
+          "mentionsUnreachableWhenOpened": [
+            0,
+            2,
+            21
+          ],
+          "badgeNeverOpened": true,
+          "badgeOpenedBeforeWindow": true,
+          "badgeOpenedAtNewest": false,
+          "hasHistoryGapWhenNeverOpened": false,
+          "watermarkAfterOpen": "9223372036854774784"
+        },
+        "memberKeys": [
+          "[\"\",\"\",\"\",\"bot-one\",\"bot-one\"]"
+        ]
+      }
+    }
+  },
+  {
+    "file": "legacy-v2.json",
+    "declaredVersion": 2,
+    "normalizedVersion": 3,
+    "gatewayBytes": 1077,
+    "longStorageBoundary": "9223372036854775808",
+    "roomKeysAfterNormalize": [
+      "name:alpha-v2",
+      "name:beta-v2"
+    ],
+    "tombstoneKeysAfterNormalize": {
+      "name:gone-v2": 5
+    },
+    "tombstoneActions": [
+      {
+        "key": "name:gone-v2",
+        "rule": "name: rev >= room.revision -> delete (L617)",
+        "deletedRoom": false,
+        "tombstoneKept": true
+      }
+    ],
+    "roomKeysSurviving": [
+      "name:alpha-v2",
+      "name:beta-v2"
+    ],
+    "rooms": {
+      "name:alpha-v2": {
+        "displayName": "alpha-v2",
+        "revision": 3,
+        "surviving": true,
+        "logIsArray": true,
+        "entries": 2,
+        "members": 1,
+        "entriesMissingId": 2,
+        "normalizedAt": [
+          1787730000000,
+          1787730001000
+        ],
+        "normalizedAtMobileLong": [
+          "1787730000000",
+          "1787730001000"
+        ],
+        "newestAt": 1787730001000,
+        "oldestAt": 1787730000000,
+        "sortOrderByEntryKey": [
+          "[1787730000000,\"user\",\"You\",\"\",\"legacy\",\"v2 en",
+          "[1787730001000,\"member\",\"bot-one\",\"\",\"legacy\","
+        ],
+        "mentionEntryIndexes": [
+          1
+        ],
+        "badgeNeverOpened": true,
+        "badgeOpenedBeforeWindow": true,
+        "badgeOpenedAtNewest": false,
+        "mentionsUnreachableWhenOpened": [],
+        "mobile": {
+          "normalizedAt": [
+            "1787730000000",
+            "1787730001000"
+          ],
+          "oldestAt": "1787730000000",
+          "newestAt": "1787730001000",
+          "displayOrder": [
+            0,
+            1
+          ],
+          "mentionEntryIndexes": [
+            1
+          ],
+          "mentionsUnreachableWhenOpened": [],
+          "badgeNeverOpened": true,
+          "badgeOpenedBeforeWindow": true,
+          "badgeOpenedAtNewest": false,
+          "hasHistoryGapWhenNeverOpened": true,
+          "watermarkAfterOpen": "1787730001000"
+        },
+        "memberKeys": [
+          "[\"\",\"\",\"\",\"bot-one\",\"bot-one\"]"
+        ]
+      },
+      "name:beta-v2": {
+        "displayName": "beta-v2",
+        "revision": 1,
+        "surviving": true,
+        "logIsArray": true,
+        "entries": 1,
+        "members": 0,
+        "entriesMissingId": 1,
+        "normalizedAt": [
+          1787730002000
+        ],
+        "normalizedAtMobileLong": [
+          "1787730002000"
+        ],
+        "newestAt": 1787730002000,
+        "oldestAt": 1787730002000,
+        "sortOrderByEntryKey": [
+          "[1787730002000,\"member\",\"bot-two\",\"\",\"legacy\","
+        ],
+        "mentionEntryIndexes": [],
+        "badgeNeverOpened": false,
+        "badgeOpenedBeforeWindow": false,
+        "badgeOpenedAtNewest": false,
+        "mentionsUnreachableWhenOpened": [],
+        "mobile": {
+          "normalizedAt": [
+            "1787730002000"
+          ],
+          "oldestAt": "1787730002000",
+          "newestAt": "1787730002000",
+          "displayOrder": [
+            0
+          ],
+          "mentionEntryIndexes": [],
+          "mentionsUnreachableWhenOpened": [],
+          "badgeNeverOpened": false,
+          "badgeOpenedBeforeWindow": false,
+          "badgeOpenedAtNewest": false,
+          "hasHistoryGapWhenNeverOpened": true,
+          "watermarkAfterOpen": "1787730002000"
+        },
+        "memberKeys": []
+      }
+    }
+  },
+  {
+    "file": "legacy-v1.json",
+    "declaredVersion": 1,
+    "normalizedVersion": 3,
+    "gatewayBytes": 771,
+    "longStorageBoundary": "9223372036854775808",
+    "roomKeysAfterNormalize": [
+      "name:alpha-v1"
+    ],
+    "tombstoneKeysAfterNormalize": {
+      "name:alpha-v1": 0
+    },
+    "tombstoneActions": [
+      {
+        "key": "name:alpha-v1",
+        "rule": "name: rev < room.revision -> DISCARD TOMBSTONE, keep room (L620)",
+        "deletedRoom": false,
+        "tombstoneKept": false
+      }
+    ],
+    "roomKeysSurviving": [
+      "name:alpha-v1"
+    ],
+    "rooms": {
+      "name:alpha-v1": {
+        "displayName": "alpha-v1",
+        "revision": 2,
+        "surviving": true,
+        "logIsArray": true,
+        "entries": 1,
+        "members": 1,
+        "entriesMissingId": 1,
+        "normalizedAt": [
+          1787720000000
+        ],
+        "normalizedAtMobileLong": [
+          "1787720000000"
+        ],
+        "newestAt": 1787720000000,
+        "oldestAt": 1787720000000,
+        "sortOrderByEntryKey": [
+          "[1787720000000,\"member\",\"bot-one\",\"\",\"legacy\","
+        ],
+        "mentionEntryIndexes": [],
+        "badgeNeverOpened": false,
+        "badgeOpenedBeforeWindow": false,
+        "badgeOpenedAtNewest": false,
+        "mentionsUnreachableWhenOpened": [],
+        "mobile": {
+          "normalizedAt": [
+            "1787720000000"
+          ],
+          "oldestAt": "1787720000000",
+          "newestAt": "1787720000000",
+          "displayOrder": [
+            0
+          ],
+          "mentionEntryIndexes": [],
+          "mentionsUnreachableWhenOpened": [],
+          "badgeNeverOpened": false,
+          "badgeOpenedBeforeWindow": false,
+          "badgeOpenedAtNewest": false,
+          "hasHistoryGapWhenNeverOpened": true,
+          "watermarkAfterOpen": "1787720000000"
+        },
+        "memberKeys": [
+          "[\"\",\"\",\"\",\"bot-one\",\"bot-one\"]"
+        ]
+      }
+    }
+  }
+]

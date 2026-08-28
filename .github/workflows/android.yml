@@ -146,6 +146,9 @@ jobs:
       - name: Grant Execute Permission for Gradlew
         run: chmod +x gradlew
 
+      - name: Fixture parity gate (asgard-rooms oracle pin)
+        run: ./gradlew checkFixtureParity
+
       - name: Run test
         run: ./gradlew test
 

@@ -1,0 +1,39 @@
+{
+  "_comment": "SYNTHETIC. Fixture 2/9 — pins that normalizeGroupChatSyncSnapshot TRUSTS v3 snapshots: rooms and deleted pass through verbatim. The malformed room (log is an object, not an array) is KEPT, the negative tombstone revision is KEPT, and the stale inner name is NOT replaced by the map key. Every pre-v3 cleanup rule (log-array drop, negative-tombstone clamp, map-key-over-name) is pre-v3 only — plugin.js L367-376 returns rooms/deleted unchanged for version >= 3. Consumers needing those invariants must apply them after normalization. No real room text, no credentials.",
+  "version": 3,
+  "updatedAt": 1787737460000,
+  "rooms": {
+    "id:rmfixt040-malfrm": {
+      "name": "stale-inner-name",
+      "roomId": "rmfixt040-malfrm",
+      "revision": 4,
+      "members": [{ "name": "bot-one", "handle": "bot-one" }],
+      "log": {
+        "not": "an array"
+      }
+    },
+    "id:rmfixt041-negdel": {
+      "name": "negative-tombstone-target",
+      "roomId": "rmfixt041-negdel",
+      "revision": 2,
+      "members": [{ "name": "bot-two", "handle": "bot-two" }],
+      "log": [
+        {
+          "id": "44414441-4441-4441-8441-444144414441",
+          "from": { "kind": "user", "name": "You" },
+          "text": "room targeted by a negative-revision tombstone",
+          "at": 1787737460000
+        },
+        {
+          "id": "44414442-4442-4442-8442-444244424442",
+          "from": { "kind": "member", "name": "bot-two" },
+          "text": "@user negative tombstone must not delete this room on the v3 path",
+          "at": 1787737461000
+        }
+      ]
+    }
+  },
+  "deleted": {
+    "id:rmfixt041-negdel": -9
+  }
+}
