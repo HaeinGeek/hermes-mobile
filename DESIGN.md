@@ -2,8 +2,6 @@
 
 ## Source of truth
 
-- **Status:** Design contract — product decisions are settled; implementation and
-  merge require separate approval.
 - **Last updated:** 2026-08-28.
 - **Product surfaces:** Android phone and adaptive Android layouts for Chat,
   Kanban, Bots, Files, and secondary management tools.
@@ -252,13 +250,13 @@ Phone sketch:
 ```text
 ┌──────────────────────────────┐
 │ Chat                    ●    │
-│ [Odin] [Norn] [Loki] →       │
+│ [Bot A] [Bot B] [Bot C] →    │
 │ [ Chats ] [ Rooms ]           │
 │ Search conversations          │
 │                              │
 │ Recent                       │
-│ Odin   Release review    2m  │
-│ Norn   Search indexing  18m  │
+│ Bot A  Release review    2m  │
+│ Bot B  Search indexing  18m  │
 │ ...                          │
 │                         (+)  │
 ├──────────────────────────────┤
